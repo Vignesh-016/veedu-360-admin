@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
     IconSettings, IconUpload, IconCheck, IconTrash,
-    IconLoader, IconPlus, IconStar, IconWorld
+    IconLoader, IconPlus, IconWorld
 } from '@tabler/icons-react';
 
 import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../lib/supabaseClient';
-import { HomepageSettings, FeatureItem, TestimonialItem } from '../lib/types';
+import { HomepageSettings} from '../lib/types';
 import { useNotification } from '../components/NotificationProvider';
 import {
     getPrimaryButtonClasses, getSecondaryButtonClasses, getBaseInputClasses
