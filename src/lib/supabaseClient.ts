@@ -163,28 +163,6 @@ class RealEstateAdminApi {
         return this.handleRpc<AdminRole[] | null>('get_my_admin_roles');
     }
 
-    async getAdminByUserId(userId: string): Promise<ApiResponse<AdminUser | null>> {
-        try {
-            const { data, error } = await this.supabase
-                .from('admins' as any)
-                .select('user_id, name, email, phone, roles, served_pincodes, is_active, admin_created_at, admin_updated_at, auth_user_created_at')
-                .eq('user_id', userId)
-                .eq('is_active', true)
-                .single();
-            if (error || !data) {
-                console.error('Error fetching admin by user ID:', error);
-                return { data: null, error: error?.message ?? 'Admin not found' };
-            }
-            // data now conforms to AdminUser
-            const admin = data as unknown as AdminUser;
-            return { data: admin, error: null };
-        } catch (err) {
-            const error = err as Error;
-            console.error('Exception fetching admin by user ID:', error);
-            return { data: null, error: error.message };
-        }
-    }
-
     async searchCustomers(searchTerm: string, hasActivePlan?: boolean, offset: number = 0, limit: number = 10): Promise<ApiResponse<CustomerSearchResultAdmin[]>> {
         return this.handleRpc<CustomerSearchResultAdmin[]>('search_customers_admin', {
             p_search_term: searchTerm,
