@@ -95,23 +95,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return null;
         }
         try {
-            const { data: userRoles, error: rolesError } = await api.getMyAdminRoles();
-            if (rolesError) {
-                console.error("fetchRole: Error fetching roles:", rolesError);
+            const { data: adminData, error } = await api.getAdminByUserId(currentUser.id);
+            if (error || !adminData) {
+                console.error('fetchRole: No active admin record found or error', error);
                 setRoles([]);
                 await performSignOut();
-                return null;
-            } else if (userRoles && userRoles.length > 0) {
-                setRoles(userRoles);
-                return userRoles;
-            } else {
-                console.warn("User authenticated but has no admin roles assigned or is inactive.");
-                await performSignOut();
-                setRoles([]);
                 return null;
             }
+            // adminData.roles is already AdminRole[]
+            setRoles(adminData.roles);
+            return adminData.roles;
         } catch (err) {
-            console.error("Exception fetching roles:", err);
+            console.error('Exception fetching admin data:', err);
             setRoles([]);
             await performSignOut();
             return null;
