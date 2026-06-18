@@ -43,7 +43,7 @@ function NotifBadge({ count, collapsed }: { count: number; collapsed: boolean })
 
 // ─── Sidebar Content ──────────────────────────────────────────
 function SidebarContent({ isCollapsed, onLinkClick }: SidebarContentProps) {
-    const { user, roles: userRoles = [], isSuperAdmin } = useAuth();
+    const { user, roles: userRoles, isSuperAdmin } = useAuth();
     const { unreadCountFor, markAllReadFor } = useRealtimeNotifications();
     const navigate = useNavigate();
 
@@ -54,26 +54,12 @@ function SidebarContent({ isCollapsed, onLinkClick }: SidebarContentProps) {
     const activeLinkClasses   = 'bg-[#D9A619] text-white font-semibold';
     const collapsedLinkClasses = 'justify-center';
 
-const normalizedRoles = userRoles.map((role) =>
-    String(role).toLowerCase().trim()
-);
-
-const hasFullAccess =
-    isSuperAdmin ||
-    normalizedRoles.includes('super-admin') ||
-    normalizedRoles.includes('super_admin') ||
-    normalizedRoles.includes('superadmin') ||
-    normalizedRoles.includes('admin');
-
-const visibleSidebarItems = appNavigationItems.filter((item) => {
-    if (!item.isSidebarLink) return false;
-    if (hasFullAccess) return true;
-    if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
-
-    return item.allowedRoles.some((role) =>
-        normalizedRoles.includes(String(role).toLowerCase().trim())
-    );
-});
+    const visibleSidebarItems = appNavigationItems.filter(item => {
+        if (!item.isSidebarLink) return false;
+        if (isSuperAdmin) return true;
+        if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
+        return item.allowedRoles.some(role => userRoles.includes(role));
+    });
 
     const handleNavClick = async (item: AppNavigationItem) => {
         // Mark all notifications for this page as read when the admin navigates to it
