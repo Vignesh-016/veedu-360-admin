@@ -170,7 +170,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                     {/* Left: Logo + Mobile toggle */}
                     <div className="flex items-center">
                         <Link to="/dashboard" className="flex-shrink-0 flex items-center">
-                            <img className="h-8 w-auto" src="/logo.png" alt="Company Logo" />
+                            <img className="h-20 w-auto" src="/veedu360-logo.png" alt="Company Logo" />
                         </Link>
 
                         {user && (

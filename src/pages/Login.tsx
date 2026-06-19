@@ -19,9 +19,9 @@ function Login() {
                         {/* Logo */}
                         <div className="mb-8">
                             <img
-                                src="/logo.png"
+                                src="/veedu360-logo.png"
                                 alt={`${companyName} Logo`}
-                                className="h-10 w-auto mb-3"
+                                className="h-20 w-auto mb-3"
                             />
                             <div className="h-0.5 w-12 bg-blue-600 rounded-full"></div>
                         </div>
