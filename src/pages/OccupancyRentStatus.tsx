@@ -155,7 +155,7 @@ function OccupancyRentStatusPage() {
     return (
         <>
             <Helmet>
-                <title>Occupancy & Rent Status | {companyName}</title>
+                <title>{`Occupancy & Rent Status | ${companyName}`}</title>
             </Helmet>
 
             <div className="min-h-screen bg-gray-50 py-8">

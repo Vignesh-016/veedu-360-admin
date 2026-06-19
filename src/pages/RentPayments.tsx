@@ -112,7 +112,7 @@ function RentPaymentsPage() {
     return (
         <>
             <Helmet>
-                <title>Rent Payments Overview | {companyName}</title>
+                <title>{`Rent Payments Overview | ${companyName}`}</title>
             </Helmet>
 
             <div className="min-h-screen bg-gray-50 py-8">

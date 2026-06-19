@@ -282,7 +282,7 @@ function TicketsPage() {
 
     return (
         <div className="min-h-screen bg-[#fcfcfd] pb-12">
-            <Helmet><title>Support Center | {companyName}</title></Helmet>
+            <Helmet><title>{`Support Center | ${companyName}`}</title></Helmet>
 
             {/* Premium Header */}
             <div className="bg-white border-b border-slate-200">

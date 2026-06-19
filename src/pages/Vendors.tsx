@@ -220,7 +220,7 @@ function VendorsPage() {
     return (
         <div className="min-h-screen bg-[#f8fafc] pb-12">
             <Helmet>
-                <title>Vendors | {companyName}</title>
+                <title>{`Vendors | ${companyName}`}</title>
             </Helmet>
 
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">

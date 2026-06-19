@@ -170,7 +170,7 @@ function RentRecordsPage() {
     return (
         <>
             <Helmet>
-                <title>Rent Records | {companyName}</title>
+                <title>{`Rent Records | ${companyName}`}</title>
             </Helmet>
 
             <div className="min-h-screen bg-gray-50 py-8">

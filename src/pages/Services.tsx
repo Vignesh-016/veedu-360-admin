@@ -121,7 +121,7 @@ function ServicesPage() {
     return (
         <div className="min-h-screen bg-[#f8fafc] pb-12">
             <Helmet>
-                <title>Services | {companyName}</title>
+                <title>{`Services | ${companyName}`}</title>
             </Helmet>
 
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">

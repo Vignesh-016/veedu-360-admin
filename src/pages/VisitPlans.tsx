@@ -119,7 +119,7 @@ function VisitPlans() {
     return (
         <div className="min-h-screen bg-[#f8fafc] pb-12">
             <Helmet>
-                <title>Visit Plans | {companyName}</title>
+                <title>{`Visit Plans | ${companyName}`}</title>
             </Helmet>
 
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
