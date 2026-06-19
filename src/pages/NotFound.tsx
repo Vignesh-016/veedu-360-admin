@@ -7,7 +7,7 @@ function NotFound() {
     return (
         <>
             <Helmet>
-                <title>404 Not Found | {companyName}</title>
+                <title>{`404 Not Found | ${companyName}`}</title>
             </Helmet>
             <div className="min-h-screen flex items-center justify-center bg-gray-100">
                 <div className="bg-white shadow-lg rounded-lg px-8 py-12 md:px-16 md:py-20 text-center">

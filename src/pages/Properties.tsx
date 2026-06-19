@@ -527,7 +527,7 @@ function Properties() {
 
     return (
         <>
-            <Helmet> <title>Properties | {companyName}</title> </Helmet>
+            <Helmet><title>{`Properties | ${companyName}`}</title></Helmet>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     {error && !modalContentLoading && !docsModalContentLoading && (<div className="mb-6 bg-red-50 border-l-4 border-red-400 text-red-700 p-4 rounded-md shadow-sm animate-fadeIn" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>)}

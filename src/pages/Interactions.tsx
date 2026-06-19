@@ -338,7 +338,7 @@ function Interactions() {
 
     return (
         <>
-            <Helmet><title>Interactions | {companyName}</title></Helmet>
+            <Helmet><title>{`Interactions | ${companyName}`}</title></Helmet>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     {error && (<div className="mb-6 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-md shadow" role="alert"> <p className="font-bold">Error</p> <p>{error}</p> </div>)}

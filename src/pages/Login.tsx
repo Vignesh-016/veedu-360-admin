@@ -9,7 +9,7 @@ function Login() {
     return (
         <>
             <Helmet>
-                <title>Admin Login | {companyName}</title>
+                <title>{`Admin Login | ${companyName}`}</title>
             </Helmet>
             <div className="flex min-h-screen bg-white">
 

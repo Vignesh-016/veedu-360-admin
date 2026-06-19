@@ -43,7 +43,7 @@ function Dashboard() {
     return (
         <>
             <Helmet>
-                <title>Dashboard | {companyName}</title>
+                <title>{`Dashboard | ${companyName}`}</title>
             </Helmet>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-10 px-4 sm:px-6 lg:px-8">
                 <div className="container mx-auto">

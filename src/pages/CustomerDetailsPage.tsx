@@ -417,7 +417,7 @@ function CustomerDetailsPage() {
     return (
         <>
             <Helmet>
-                <title>Customer Details | {customerData.full_name || userId} | {companyName}</title>
+                <title>{`Customer Details | ${customerData.full_name || userId} | ${companyName}`}</title>
             </Helmet>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">

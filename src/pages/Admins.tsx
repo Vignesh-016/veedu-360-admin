@@ -180,7 +180,7 @@ function AdminsPage() {
 
     return (
         <>
-            <Helmet><title>Manage Admins | {companyName}</title></Helmet>
+            <Helmet><title>{`Manage Admins | ${companyName}`}</title></Helmet>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     {error && <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-sm animate-fadeIn"><p className="font-bold">Error</p><p>{error}</p></div>}

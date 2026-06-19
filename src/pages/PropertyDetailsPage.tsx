@@ -329,7 +329,7 @@ function PropertyDetailsPage() {
 
     return (
         <>
-            <Helmet><title>Property Details | {propertyData.address || propertyId} | {companyName}</title></Helmet>
+            <Helmet><title>{`Property Details | ${propertyData.address || propertyId} | ${companyName}`}</title></Helmet>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
 

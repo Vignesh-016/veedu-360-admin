@@ -127,7 +127,7 @@ function HomepageSettingsPage() {
 
     return (
         <>
-            <Helmet><title>Homepage Settings | {import.meta.env.VITE_COMPANY_NAME || "Veedu 360"}</title></Helmet>
+            <Helmet><title>{`Homepage Settings | ${import.meta.env.VITE_COMPANY_NAME || "Veedu 360"}`}</title></Helmet>
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
                     
