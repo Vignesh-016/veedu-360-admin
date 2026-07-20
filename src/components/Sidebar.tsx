@@ -51,7 +51,7 @@ function SidebarContent({ isCollapsed, onLinkClick }: SidebarContentProps) {
 
     const commonLinkClasses = `relative flex items-center px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-150 ease-in-out group`;
     const inactiveLinkClasses = 'text-gray-600 hover:bg-gray-200 hover:text-gray-900';
-    const activeLinkClasses   = 'bg-[#D9A619] text-white font-semibold';
+    const activeLinkClasses = 'bg-[#D9A619] text-white font-semibold';
     const collapsedLinkClasses = 'justify-center';
 
     const visibleSidebarItems = appNavigationItems.filter(item => {

@@ -1,14 +1,32 @@
-import { useState } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
+import { useMarkNotificationsReadOnVisit } from '../lib/RealtimeNotificationContext';
+import { appNavigationItems } from '../lib/navigationConfig';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import LoadingSpinner from './LoadingSpinner';
 
 function ProtectedLayout() {
     const { user, loading } = useAuth();
+    const location = useLocation();
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+    const activePageContext = useMemo(() => {
+        const matchingItem = appNavigationItems
+            .filter(item =>
+                location.pathname === item.path ||
+                location.pathname.startsWith(`${item.path}/`)
+            )
+            .sort((a, b) => b.path.length - a.path.length)[0];
+
+        return matchingItem?.id ?? '';
+    }, [location.pathname]);
+
+    // Visiting a module means its notifications have been seen, regardless of
+    // whether it was opened from the sidebar, dashboard, bell, or a direct URL.
+    useMarkNotificationsReadOnVisit(activePageContext);
 
     const handleMenuToggle = () => {
         setIsMobileSidebarOpen(!isMobileSidebarOpen);

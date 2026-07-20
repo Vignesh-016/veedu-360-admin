@@ -3,6 +3,7 @@ import { Navigate, Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Helmet } from 'react-helmet-async';
 import { IconRefresh, IconAlertCircle } from '@tabler/icons-react';
+import { useRealtimeNotifications } from '../lib/RealtimeNotificationContext';
 import { getBaseCardClasses, getSecondaryButtonClasses } from '../lib/twUtils';
 import { appNavigationItems, AppNavigationItem } from '../lib/navigationConfig';
 import DashboardCharts from '../components/dashboard/DashboardCharts';
@@ -30,6 +31,8 @@ function Dashboard() {
     if (!user) {
         return <Navigate to="/login" replace />;
     }
+
+    const { getModuleNotificationCount } = useRealtimeNotifications();
 
     const visibleDashboardCards = appNavigationItems.filter(item => {
         if (!item.isDashboardCard) return false;
@@ -96,7 +99,14 @@ function Dashboard() {
                                             {card.icon}
                                         </div>
                                         <div className="flex-1">
-                                            <h3 className="font-bold text-lg text-gray-800 group-hover:text-[#c49a17] mb-1">{card.label}</h3>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-bold text-lg text-gray-800 group-hover:text-[#c49a17] truncate">{card.label}</h3>
+                                                {getModuleNotificationCount(card.id) > 0 && (
+                                                    <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                        {getModuleNotificationCount(card.id) > 99 ? '99+' : getModuleNotificationCount(card.id)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {card.description && <p className="text-sm text-gray-500">{card.description}</p>}
                                         </div>
                                     </div>

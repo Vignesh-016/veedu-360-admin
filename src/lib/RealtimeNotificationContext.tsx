@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import api from './supabaseClient';
+import { useAuth } from './AuthContext';
 
 // ─────────────────────────────────────────────
 // Types
@@ -15,6 +16,7 @@ import api from './supabaseClient';
 
 export interface AdminNotification {
   id: string;
+  recipient_admin_id: string;
   type: string;
   payload: {
     title: string;
@@ -35,6 +37,8 @@ interface RealtimeNotificationContextType {
   unreadCount: number;
   /** Unread count for a specific page_context (sidebar badge) */
   unreadCountFor: (pageContext: string) => number;
+  /** Alias for module notification count lookup */
+  getModuleNotificationCount: (moduleId: string) => number;
   /** Mark a single notification as read */
   markAsRead: (id: string) => Promise<void>;
   /** Mark ALL notifications for a given page_context as read */
@@ -59,6 +63,7 @@ export function RealtimeNotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [lastNotificationEvent, setLastNotificationEvent] = useState<AdminNotification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,10 +71,16 @@ export function RealtimeNotificationProvider({
 
   // ── 1. Fetch existing unread notifications on mount ──
   const fetchUnread = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await (api.supabase as any)
         .from('admin_notifications')
-        .select('id, type, payload, page_context, target_role, created_at, read_at')
+        .select('id, recipient_admin_id, type, payload, page_context, target_role, created_at, read_at')
         .is('read_at', null)
         .order('created_at', { ascending: false });
 
@@ -81,10 +92,18 @@ export function RealtimeNotificationProvider({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // ── 2. Subscribe to real-time INSERT events ──
   useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setLastNotificationEvent(null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     fetchUnread();
 
     const channel = (api.supabase as any)
@@ -95,6 +114,7 @@ export function RealtimeNotificationProvider({
           event: 'INSERT',
           schema: 'public',
           table: 'admin_notifications',
+          filter: `recipient_admin_id=eq.${user.id}`,
         },
         (payload: any) => {
           const newItem = payload.new as AdminNotification;
@@ -112,6 +132,7 @@ export function RealtimeNotificationProvider({
           event: 'UPDATE',
           schema: 'public',
           table: 'admin_notifications',
+          filter: `recipient_admin_id=eq.${user.id}`,
         },
         (payload: any) => {
           const updated = payload.new as AdminNotification;
@@ -149,25 +170,24 @@ export function RealtimeNotificationProvider({
 
   // ── 4. Mark ALL for a page_context as read ──
   const markAllReadFor = useCallback(async (pageContext: string) => {
-    const ids = notifications
-      .filter((n) => n.page_context === pageContext && n.read_at === null)
-      .map((n) => n.id);
+    if (!pageContext) return;
 
-    if (ids.length === 0) return;
-
-    // Optimistic UI
-    setNotifications((prev) => prev.filter((n) => !ids.includes(n.id)));
+    // Optimistic UI: clear only this module's unread notifications.
+    setNotifications((prev) =>
+      prev.filter((n) => n.page_context !== pageContext)
+    );
 
     const { error } = await (api.supabase as any)
       .from('admin_notifications')
       .update({ read_at: new Date().toISOString() })
-      .in('id', ids);
+      .eq('page_context', pageContext)
+      .is('read_at', null);
 
     if (error) {
       console.error('[RealtimeNotifications] markAllReadFor error:', error.message);
       fetchUnread();
     }
-  }, [notifications, fetchUnread]);
+  }, [fetchUnread, user]);
 
   // ── 5. Helper selectors ──
   const unreadCount = notifications.length;
@@ -185,6 +205,7 @@ export function RealtimeNotificationProvider({
         lastNotificationEvent,
         unreadCount,
         unreadCountFor,
+        getModuleNotificationCount: unreadCountFor,
         markAsRead,
         markAllReadFor,
         isLoading,
@@ -222,4 +243,21 @@ export function useRefreshOnNotification(pageContext: string, onNotification: ()
       onNotification();
     }
   }, [lastNotificationEvent, pageContext, onNotification]);
+}
+
+/**
+ * Hook to mark all notifications for a page context as read when a page is visited.
+ * This makes module badges behave like a notification system: when the admin opens the module,
+ * its unread badge count is reduced immediately.
+ */
+export function useMarkNotificationsReadOnVisit(pageContext: string) {
+  const { markAllReadFor, isLoading } = useRealtimeNotifications();
+
+  useEffect(() => {
+    if (!pageContext || isLoading) return;
+
+    // Run when the admin enters the module. A notification received while the
+    // admin remains on the page stays unread until the module is visited again.
+    markAllReadFor(pageContext);
+  }, [pageContext, isLoading, markAllReadFor]);
 }
