@@ -76,6 +76,7 @@ export interface BaseUserInfo {
 
 export interface CustomerProfile extends BaseUserInfo {
     visit_balance: number | null;
+    contact_balance: number | null;
     expiry_date: string | null;
     profile_details: Json | null;
     auth_created_at: string;
@@ -328,7 +329,8 @@ export type CustomerFullDetailsAdmin = Omit<Database['public']['Functions']['get
     'transactions' |
     'raised_tickets' |
     'landlord_rent_records' |
-    'tenant_rent_records'
+    'tenant_rent_records' |
+    'unlocked_properties'
 > & {
     customer_documents: CustomerDocument[];
     interactions: DenormalizedCustomerInteraction[];
@@ -338,6 +340,9 @@ export type CustomerFullDetailsAdmin = Omit<Database['public']['Functions']['get
     raised_tickets: DenormalizedCustomerTicketSummary[];
     landlord_rent_records: DenormalizedLandlordRentRecord[];
     tenant_rent_records: DenormalizedTenantRentRecord[];
+    unlocked_properties: DenormalizedUnlockedContact[];
+    /** Contact balance — manually added since DB auto-generated types omit it */
+    contact_balance: number | null;
 };
 
 
@@ -698,4 +703,44 @@ export interface HomepageSettings {
     management_services: ManagementServicesSettings;
     testimonials: TestimonialsSettings;
     support: SupportSettings;
+    homepage_settings?: any; // Fallback if needed
+}
+
+export interface DenormalizedUnlockedContact {
+    property_id: string;
+    property_name: string;
+    address: string;
+    city: string;
+    locality: string;
+    unlocked_at: string;
+    owner_name: string | null;
+    owner_phone: string | null;
+}
+
+export interface ContactPlan {
+    plan_id: string;
+    name: string;
+    price: number;
+    contacts: number;
+    description: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface InsertContactPlanAdminParams {
+    p_name: string;
+    p_price: number;
+    p_contacts: number;
+    p_description: string;
+    p_is_active: boolean;
+}
+
+export interface UpdateContactPlanAdminParams {
+    p_plan_id: string;
+    p_name: string;
+    p_price: number;
+    p_contacts: number;
+    p_description: string;
+    p_is_active: boolean;
 }

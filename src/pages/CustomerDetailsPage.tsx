@@ -22,7 +22,7 @@ import {
     CustomerFullDetailsAdmin, DenormalizedOwnedPropertySummary, DenormalizedTenantInPropertySummary,
     PropertyAdminStatus, CustomerDocument, DenormalizedCustomerTransaction, DenormalizedCustomerInteraction,
     DenormalizedLandlordRentRecord, DenormalizedTenantRentRecord, DenormalizedCustomerTicketSummary,
-    PropertyDocument, UpdateCustomerProfileDetailsAdminParams
+    PropertyDocument, UpdateCustomerProfileDetailsAdminParams, DenormalizedUnlockedContact
 } from '../lib/types';
 import DocumentManager from '../components/DocumentManager';
 import CustomerEditModal from '../components/CustomerEditModal';
@@ -356,6 +356,22 @@ function CustomerDetailsPage() {
     };
 
 
+    const renderUnlockedContactCard = (contact: DenormalizedUnlockedContact) => (
+        <div key={contact.property_id} className={`${getBaseCardClasses()} p-3 hover:shadow-lg transition-shadow duration-200`}>
+            <div className="flex justify-between items-start mb-1">
+                <Link to={`/properties/${contact.property_id}`} className="text-sm font-semibold text-gray-800 hover:text-blue-600 truncate" title={contact.address}>
+                    {renderTruncatedText(contact.address, 40)}
+                </Link>
+                {renderCopyableId(contact.property_id, "Prop ID")}
+            </div>
+            <div className="text-xs text-gray-600 space-y-0.5 mt-2">
+                <p>Owner Name: <span className="font-medium text-gray-800">{contact.owner_name || 'N/A'}</span></p>
+                <p>Owner Phone: <span className="font-medium text-gray-800">{contact.owner_phone ? `+${contact.owner_phone}` : 'N/A'}</span></p>
+                <p>Unlocked: {formatTimestamp(contact.unlocked_at)}</p>
+            </div>
+        </div>
+    );
+
     const renderTicketCard = (ticket: DenormalizedCustomerTicketSummary) => (
         <div key={ticket.ticket_id} className={`${getBaseCardClasses()} p-3 hover:shadow-lg transition-shadow duration-200`}>
             <div className="flex justify-between items-start mb-1">
@@ -430,7 +446,7 @@ function CustomerDetailsPage() {
                                 onClick={() => setIsVisitsEditModalOpen(true)}
                                 className={getSecondaryButtonClasses()}
                             >
-                                <IconEdit size={16} className="mr-1.5" /> Edit Visits/Expiry
+                                <IconEdit size={16} className="mr-1.5" /> Edit Credits &amp; Expiry
                             </button>
                             <button
                                 onClick={() => setIsProfileJsonEditorOpen(true)}
@@ -462,6 +478,7 @@ function CustomerDetailsPage() {
                                     {renderDetailItem("Phone", "+" + customerData.phone, <IconPhone size={14} />)}
                                     {renderDetailItem("User ID", customerData.user_id, <IconId size={14} />)}
                                     {renderDetailItem("Visit Balance", customerData.visit_balance ?? 0, <IconCreditCard size={14} />)}
+                                    {renderDetailItem("Contact Balance", customerData.contact_balance ?? 0, <IconPhone size={14} />)}
                                     {renderDetailItem("Plan Expiry", customerData.expiry_date, <IconCalendarEvent size={14} />, undefined, true)}
                                     {renderDetailItem("Auth User Created", customerData.auth_created_at, <IconClock size={14} />, undefined, false, true)}
                                     {renderDetailItem("Profile Updated", customerData.customer_updated_at, <IconClock size={14} />, undefined, false, true)}
@@ -496,6 +513,7 @@ function CustomerDetailsPage() {
                             {renderSection("Rented Properties (Tenant)", <IconBuildingStore size={16} className="text-blue-600" />, customerData.tenant_in_properties, renderPropertyCard, 'tenant')}
                             {renderSection("Interactions", <IconMessageCircle size={16} className="text-purple-600" />, customerData.interactions, renderInteractionCard)}
                             {renderSection("Visit Plan Transactions", <IconReceipt2 size={16} className="text-cyan-600" />, customerData.transactions, renderTransactionCard)}
+                            {renderSection("Unlocked Owner Contacts", <IconPhone size={16} className="text-teal-600" />, customerData.unlocked_properties, renderUnlockedContactCard)}
                             {renderSection("Rent Records (as Landlord)", <IconReceipt size={16} className="text-red-600" />, customerData.landlord_rent_records, renderRentRecordCard, 'landlord')}
                             {renderSection("Rent Records (as Tenant)", <IconReceipt size={16} className="text-lime-600" />, customerData.tenant_rent_records, renderRentRecordCard, 'tenant')}
                             {renderSection("Raised Tickets", <IconTicket size={16} className="text-yellow-600" />, customerData.raised_tickets, renderTicketCard)}

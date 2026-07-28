@@ -10,7 +10,7 @@ import {
     CustomerSearchResultAdmin, CustomerFullDetailsAdmin,
     CustomerInteractionAdminView,
     VisitPlanAdminView, ManagementPlanInfo,
-    TransactionAdminView,
+    TransactionAdminView, ContactPlan,
     ServiceAdminView, VendorAdminSummary, VendorAdminDetails,
     TicketAdminSummary, TicketAdminDetails,
     RentRecordAdminSummary, RentRecordAdminDetails,
@@ -25,6 +25,7 @@ import {
     UpdatePropertyImageAdminParams,
     UpdateCustomerProfileDetailsAdminParams, GetAllCustomerInteractionsAdminParams, UpdateCustomerInteractionAdminParams,
     InsertVisitPlanAdminParams, UpdateVisitPlanAdminParams, GetAllTransactionsAdminParams, UpdateTransactionStatusAdminParams,
+    InsertContactPlanAdminParams, UpdateContactPlanAdminParams,
     CreateManagementPlanAdminParams, UpdateManagementPlanAdminParams,
     CreateRentRecordAdminParams, UpdateRentRecordAdminParams, ListRentRecordsAdminParams, RecordRentPaymentAdminParams,
     OccupiedPropertiesRentStatusReportAdminParams, PropertyPaymentHistoryAdminParams,
@@ -83,6 +84,21 @@ class RealEstateAdminApi {
         try {
             const rpcParams = params ?? {};
             const { data, error } = await this.supabase.rpc(functionName, rpcParams);
+            if (error) throw error;
+            return { data: data as T, error: null };
+        } catch (err) {
+            const error = err as PostgrestError | Error;
+            console.error(`Error calling RPC ${functionName}:`, error);
+            return { data: null, error: error.message };
+        }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private async handleRpcAny<T>(functionName: string, params?: object): Promise<ApiResponse<T>> {
+        try {
+            const rpcParams = params ?? {};
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data, error } = await (this.supabase.rpc as any)(functionName, rpcParams);
             if (error) throw error;
             return { data: data as T, error: null };
         } catch (err) {
@@ -179,6 +195,13 @@ class RealEstateAdminApi {
 
     async updateCustomerVisits(customerUserId: string, visitBalance: number, expiryDate: string): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('update_customer_visits_admin', { p_customer_user_id: customerUserId, p_new_visit_balance: visitBalance, p_new_expiry_date: expiryDate });
+    }
+
+    async updateCustomerContactBalance(customerUserId: string, contactBalance: number): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('update_customer_contact_balance_admin', {
+            p_customer_user_id: customerUserId,
+            p_new_contact_balance: contactBalance
+        });
     }
 
     async updateCustomerProfileDetails(params: UpdateCustomerProfileDetailsAdminParams): Promise<ApiResponse<null>> {
@@ -292,6 +315,22 @@ class RealEstateAdminApi {
 
     async updateVisitPlanAdmin(params: UpdateVisitPlanAdminParams): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('update_visit_plan_admin', params);
+    }
+
+    async getAllContactPlansAdmin(isActiveFilter?: boolean): Promise<ApiResponse<ContactPlan[]>> {
+        return this.handleRpcAny<ContactPlan[]>('get_all_contact_plans_admin', { p_is_active_filter: isActiveFilter });
+    }
+
+    async insertContactPlanAdmin(params: InsertContactPlanAdminParams): Promise<ApiResponse<string>> {
+        return this.handleRpcAny<string>('insert_contact_plan_admin', params);
+    }
+
+    async updateContactPlanAdmin(params: UpdateContactPlanAdminParams): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('update_contact_plan_admin', params);
+    }
+
+    async deleteContactPlanAdmin(planId: string): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('delete_contact_plan_admin', { p_plan_id: planId });
     }
 
     async getAllTransactionsAdmin(params: GetAllTransactionsAdminParams): Promise<ApiResponse<TransactionAdminView[]>> {

@@ -2,7 +2,7 @@ import {
     IconHome, IconBuilding, IconUsers, IconClipboardList, IconReceipt,
     IconUserPlus, IconMessageCircle, IconTruckDelivery, IconTicket, IconTools,
     IconCertificate, IconCash, IconHomeCheck, IconRoute, IconFileDescription,
-    IconFileText, IconSettings
+    IconFileText, IconSettings, IconPhoneCall
 } from '@tabler/icons-react';
 import { AdminRole } from './types';
 
@@ -83,6 +83,16 @@ export const appNavigationItems: AppNavigationItem[] = [
         label: 'Visit Plans',
         icon: <IconClipboardList size={20} />,
         description: 'Create & manage visit plans for customers.',
+        allowedRoles: ['super-admin', 'accounts-team'],
+        isSidebarLink: true,
+        isDashboardCard: true,
+    },
+    {
+        id: 'contactPlans',
+        path: '/contact-plans',
+        label: 'Contact Plans',
+        icon: <IconPhoneCall size={20} />,
+        description: 'Manage owner contact unlock credit packages.',
         allowedRoles: ['super-admin', 'accounts-team'],
         isSidebarLink: true,
         isDashboardCard: true,
