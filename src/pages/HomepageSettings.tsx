@@ -7,8 +7,9 @@ import {
 
 import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../lib/supabaseClient';
-import { HomepageSettings} from '../lib/types';
+import { HomepageSettings, ManagementPlanInfo } from '../lib/types';
 import { useNotification } from '../components/NotificationProvider';
+import ManagementPlanFormModal from '../components/ManagementPlanFormModal';
 import {
     getPrimaryButtonClasses, getSecondaryButtonClasses, getBaseInputClasses
 } from '../lib/twUtils';
@@ -23,7 +24,29 @@ function HomepageSettingsPage() {
     const [uploadingField, setUploadingField] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'hero' | 'promos' | 'whychooseus' | 'testimonials' | 'support'>('hero');
 
+    const [plans, setPlans] = useState<ManagementPlanInfo[]>([]);
+    const [loadingPlans, setLoadingPlans] = useState(false);
+    const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<ManagementPlanInfo | null>(null);
+
     const { showSuccessNotification, showErrorNotification } = useNotification();
+
+    const fetchPlans = async () => {
+        setLoadingPlans(true);
+        try {
+            const { data, error: fetchError } = await api.listManagementPlansAdmin(true);
+            if (fetchError) throw fetchError;
+            setPlans(data || []);
+        } catch (err: any) {
+            console.error("Error fetching management plans:", err);
+        } finally {
+            setLoadingPlans(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPlans();
+    }, []);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -590,7 +613,23 @@ function HomepageSettingsPage() {
                                     </div>
                                 </div>
 
-                                <h3 className="text-lg font-bold text-gray-800 border-b pb-2 pt-6">Management Services Section</h3>
+                                <div className="flex justify-between items-center border-b pb-2 pt-6">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-800">Management Services Section & Cards</h3>
+                                        <p className="text-xs text-gray-500">Manage section header, description, and individual management plan cards.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedPlan(null);
+                                            setIsPlanModalOpen(true);
+                                        }}
+                                        className={`${getSecondaryButtonClasses()} !text-xs flex items-center gap-1`}
+                                    >
+                                        <IconPlus size={14} />
+                                        Add Service Card / Plan
+                                    </button>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
@@ -616,6 +655,47 @@ function HomepageSettingsPage() {
                                             className={getBaseInputClasses()}
                                         />
                                     </div>
+                                </div>
+
+                                {/* Inline Service Cards / Plans Management List */}
+                                <div className="pt-4 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="font-bold text-gray-700 text-sm">Management Plan Cards ({plans.length})</h4>
+                                    </div>
+                                    {loadingPlans ? (
+                                        <div className="flex justify-center py-4">
+                                            <LoadingSpinner size={24} />
+                                        </div>
+                                    ) : plans.length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic py-2">No management plans available. Click "Add Service Card / Plan" to create one.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {plans.map((p) => (
+                                                <div key={p.plan_id} className="p-3.5 border border-gray-200 rounded-xl bg-gray-50 flex justify-between items-start">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-sm text-gray-800">{p.name}</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                                                                {p.is_active ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description || 'No description'}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedPlan(p);
+                                                            setIsPlanModalOpen(true);
+                                                        }}
+                                                        className={`${getSecondaryButtonClasses()} !p-1.5 text-xs text-gray-600 hover:text-blue-600 border-none shadow-none`}
+                                                        title="Edit Plan Card"
+                                                    >
+                                                        Edit Card
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -970,6 +1050,14 @@ function HomepageSettingsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Management Plan Form Modal for editing directly inside Homepage Settings */}
+            <ManagementPlanFormModal
+                isOpen={isPlanModalOpen}
+                onClose={() => setIsPlanModalOpen(false)}
+                plan={selectedPlan}
+                onSuccess={fetchPlans}
+            />
         </>
     );
 }

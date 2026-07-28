@@ -38,11 +38,9 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         setLoading(true);
         setError(null);
 
-        const numericPercentage = parseFloat(percentage as string);
-        if (isNaN(numericPercentage) || numericPercentage < 0 || numericPercentage > 100) {
-            setError("Percentage must be a number between 0 and 100.");
-            setLoading(false);
-            return;
+        let numericPercentage = parseFloat(percentage as string);
+        if (isNaN(numericPercentage)) {
+            numericPercentage = 0;
         }
 
         try {
@@ -128,9 +126,13 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                         </p>
                     </div>
                 )}
-                {renderInput("name", "Plan Name", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Standard Management", true)}
-                {renderInput("percentage", "Percentage (%)", "number", percentage, (e) => setPercentage(e.target.value), <IconPercentage className="h-4 w-4" />, "e.g., 8.00", true, undefined, 0, 100, 0.01)}
-                {renderInput("description", "Description", "textarea", description, (e) => setDescription(e.target.value), <IconListDetails className="h-4 w-4" />, "Brief description of the plan...", false, 3)}
+                {renderInput("name", "Card Header Title", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Tenant Placement & Transition", true)}
+                <div>
+                    {renderInput("description", "Subheadings & Bullet Points (Format: Subheading: Details)", "textarea", description, (e) => setDescription(e.target.value), <IconListDetails className="h-4 w-4" />, "Background Checks: Rigorous tenant verification and reference matching.\nExit Management: Complete move-out inspections.\nCost: Flat fee per placement.", false, 5)}
+                    <p className="mt-1.5 text-[11px] text-gray-500 italic bg-amber-50 p-2 rounded border border-amber-200/60">
+                        ✨ <b>Formatting guide:</b> Write each line as <span className="font-mono font-bold text-gray-800">Subheading: Description</span> to automatically display italicized subheadings, bold prefixes, and bullet point items matching your design.
+                    </p>
+                </div>
                 <div className="flex items-center justify-between">
                     <span className="flex items-center text-sm font-medium text-gray-700">
                         <IconCheckbox className="h-4 w-4 mr-2 text-gray-400" />
