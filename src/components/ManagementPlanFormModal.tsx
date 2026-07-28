@@ -1,6 +1,6 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { Fragment, useState, FormEvent, ChangeEvent } from 'react';
-import { IconX, IconFileText, IconPercentage, IconListDetails, IconCheckbox, IconAlertCircle } from '@tabler/icons-react';
+import { IconX, IconFileText, IconListDetails, IconCheckbox, IconAlertCircle } from '@tabler/icons-react';
 import { Switch } from '@headlessui/react';
 import { CreateManagementPlanAdminParams, ManagementPlanInfo, UpdateManagementPlanAdminParams } from '../lib/types';
 import api from '../lib/supabaseClient';
@@ -26,7 +26,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
     const isEditing = !!plan;
 
     const [name, setName] = useState(plan?.name || '');
-    const [percentage, setPercentage] = useState<number | string>(plan?.percentage.toString() || '');
+    const [percentage] = useState<number | string>(plan?.percentage.toString() || '');
     const [description, setDescription] = useState(plan?.description || '');
     const [isActive, setIsActive] = useState(plan?.is_active ?? true);
 
