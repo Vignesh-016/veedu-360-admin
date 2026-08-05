@@ -401,7 +401,7 @@ function TransactionsPage() {
                                                 <td className="px-6 py-5 whitespace-nowrap">
                                                     <div className="flex items-center space-x-2">
                                                         <span className="font-mono text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 uppercase group-hover:bg-white group-hover:border-slate-200 transition-all">
-                                                            #{transaction.transaction_id.substring(0, 8)}
+                                                            #{transaction.transaction_id?.substring(0, 8) || ''}
                                                         </span>
                                                         <button onClick={() => copyToClipboard(transaction.transaction_id)} title="Copy Full ID" className="text-slate-300 hover:text-slate-600 transition-colors">
                                                             <IconCopy size={12} />
@@ -426,7 +426,7 @@ function TransactionsPage() {
                                                 <td className="px-6 py-5">
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-medium text-slate-700">{transaction.plan_name}</span>
-                                                        <span className="text-[10px] font-mono font-medium text-slate-300 mt-1 uppercase tracking-tighter">REF: {transaction.plan_id.substring(0, 8)}</span>
+                                                        <span className="text-[10px] font-mono font-medium text-slate-300 mt-1 uppercase tracking-tighter">REF: {transaction.plan_id?.substring(0, 8) || ''}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5 whitespace-nowrap">
