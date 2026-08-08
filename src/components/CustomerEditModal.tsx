@@ -22,6 +22,7 @@ interface CustomerEditFormBodyProps {
 function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditFormBodyProps) {
     const [visitBalance, setVisitBalance] = useState<number>(customer.visit_balance || 0);
     const [contactBalance, setContactBalance] = useState<number>(customer.contact_balance ?? 0);
+    const [listingQuota, setListingQuota] = useState<number>((customer as any).listing_quota ?? 50);
     const [expiryDate, setExpiryDate] = useState<string>(
         customer.expiry_date ? new Date(customer.expiry_date).toISOString().slice(0, 10) : ''
     );
@@ -35,10 +36,11 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
         setError(null);
 
         try {
-            // Run both updates in parallel; collect results to surface any error
-            const [visitsResult, contactResult] = await Promise.allSettled([
+            // Run all updates in parallel; collect results to surface any error
+            const [visitsResult, contactResult, listingQuotaResult] = await Promise.allSettled([
                 api.updateCustomerVisits(customer.user_id, visitBalance, expiryDate || ''),
                 api.updateCustomerContactBalance(customer.user_id, contactBalance),
+                api.updateCustomerListingQuota(customer.user_id, listingQuota),
             ]);
 
             const errors: string[] = [];
@@ -55,6 +57,13 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
             } else if (contactResult.value.error) {
                 const err = contactResult.value.error;
                 errors.push(`Contact Balance: ${typeof err === 'string' ? err : err.message}`);
+            }
+
+            if (listingQuotaResult.status === 'rejected') {
+                errors.push(`Listing Quota: ${listingQuotaResult.reason?.message ?? 'Unknown error'}`);
+            } else if (listingQuotaResult.value.error) {
+                const err = listingQuotaResult.value.error;
+                errors.push(`Listing Quota: ${typeof err === 'string' ? err : err.message}`);
             }
 
             if (errors.length > 0) {
@@ -135,6 +144,23 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
                     />
                 </div>
 
+                {/* Property Listing Quota */}
+                <div>
+                    <label htmlFor="listingQuota" className="block text-sm font-medium text-gray-700 mb-1">
+                        Property Listing Quota
+                        <span className="text-xs text-gray-400 font-normal ml-1">(free property postings limit)</span>
+                    </label>
+                    <input
+                        type="number"
+                        id="listingQuota"
+                        min="0"
+                        value={listingQuota}
+                        onChange={(e) => setListingQuota(Math.max(0, Number(e.target.value)))}
+                        className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D9A619] focus:border-[#D9A619] sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                        disabled={loading}
+                    />
+                </div>
+
                 {/* Expiry Date */}
                 <div>
                     <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
@@ -156,6 +182,7 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
                     <p className="font-semibold">Current values</p>
                     <p>Visit Balance: <span className="font-medium">{customer.visit_balance ?? 0}</span></p>
                     <p>Contact Balance: <span className="font-medium">{customer.contact_balance ?? 0}</span></p>
+                    <p>Property Listing Quota: <span className="font-medium">{(customer as any).listing_quota ?? 50}</span></p>
                     <p>Expiry: <span className="font-medium">{customer.expiry_date ? new Date(customer.expiry_date).toLocaleDateString('en-IN') : '—'}</span></p>
                 </div>
             </div>

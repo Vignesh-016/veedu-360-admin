@@ -479,6 +479,7 @@ function CustomerDetailsPage() {
                                     {renderDetailItem("User ID", customerData.user_id, <IconId size={14} />)}
                                     {renderDetailItem("Visit Balance", customerData.visit_balance ?? 0, <IconCreditCard size={14} />)}
                                     {renderDetailItem("Contact Balance", customerData.contact_balance ?? 0, <IconPhone size={14} />)}
+                                    {renderDetailItem("Listing Quota", (customerData as any).listing_quota ?? 50, <IconHome size={14} />)}
                                     {renderDetailItem("Plan Expiry", customerData.expiry_date, <IconCalendarEvent size={14} />, undefined, true)}
                                     {renderDetailItem("Auth User Created", customerData.auth_created_at, <IconClock size={14} />, undefined, false, true)}
                                     {renderDetailItem("Profile Updated", customerData.customer_updated_at, <IconClock size={14} />, undefined, false, true)}

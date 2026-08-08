@@ -204,6 +204,13 @@ class RealEstateAdminApi {
         });
     }
 
+    async updateCustomerListingQuota(customerUserId: string, listingQuota: number): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('update_customer_listing_quota_admin', {
+            p_customer_user_id: customerUserId,
+            p_new_listing_quota: listingQuota
+        });
+    }
+
     async updateCustomerProfileDetails(params: UpdateCustomerProfileDetailsAdminParams): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('update_customer_profile_details_admin', params);
     }

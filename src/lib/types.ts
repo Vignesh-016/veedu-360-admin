@@ -77,6 +77,7 @@ export interface BaseUserInfo {
 export interface CustomerProfile extends BaseUserInfo {
     visit_balance: number | null;
     contact_balance: number | null;
+    listing_quota?: number | null;
     expiry_date: string | null;
     profile_details: Json | null;
     auth_created_at: string;
