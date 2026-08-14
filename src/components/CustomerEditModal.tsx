@@ -22,7 +22,7 @@ interface CustomerEditFormBodyProps {
 function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditFormBodyProps) {
     const [visitBalance, setVisitBalance] = useState<number>(customer.visit_balance || 0);
     const [contactBalance, setContactBalance] = useState<number>(customer.contact_balance ?? 0);
-    const [listingQuota, setListingQuota] = useState<number>((customer as any).listing_quota ?? 50);
+    const [listingQuota, setListingQuota] = useState<number>((customer as any).listing_quota ?? 1);
     const [expiryDate, setExpiryDate] = useState<string>(
         customer.expiry_date ? new Date(customer.expiry_date).toISOString().slice(0, 10) : ''
     );
@@ -182,7 +182,7 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
                     <p className="font-semibold">Current values</p>
                     <p>Visit Balance: <span className="font-medium">{customer.visit_balance ?? 0}</span></p>
                     <p>Contact Balance: <span className="font-medium">{customer.contact_balance ?? 0}</span></p>
-                    <p>Property Listing Quota: <span className="font-medium">{(customer as any).listing_quota ?? 50}</span></p>
+                    <p>Property Listing Quota: <span className="font-medium">{(customer as any).listing_quota ?? 1}</span></p>
                     <p>Expiry: <span className="font-medium">{customer.expiry_date ? new Date(customer.expiry_date).toLocaleDateString('en-IN') : '—'}</span></p>
                 </div>
             </div>
