@@ -100,7 +100,6 @@ export type AdminUserSummary = Omit<Database['public']['Functions']['list_admins
 };
 
 
-// --- Property Type Details (for property.details JSONB field) ---
 export interface HouseDetailsJson {
     house_name: string;
     house_type?: HouseType;
@@ -110,6 +109,7 @@ export interface HouseDetailsJson {
     total_floors?: number;
     floor_number?: number;
     num_carparking?: number;
+    car_parking?: 'COVERED' | 'AMPLE' | 'OPEN';
     furnished_status?: FurnishedStatus;
     facing_direction?: Direction;
     is_corner_plot?: boolean;
@@ -124,6 +124,7 @@ export interface LandDetailsJson {
     plot_dimensions?: string;
     road_access_width_ft?: number;
     is_corner_plot?: boolean;
+    is_dtcp_approved?: boolean;
 }
 
 export interface BuildingDetailsJson {

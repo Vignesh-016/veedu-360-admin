@@ -128,7 +128,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 )}
                 {renderInput("name", "Card Header Title", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Tenant Placement & Transition", true)}
                 <div>
-                    {renderInput("description", "Subheadings & Bullet Points (Format: Subheading: Details)", "textarea", description, (e) => setDescription(e.target.value), <IconListDetails className="h-4 w-4" />, "Background Checks: Rigorous tenant verification and reference matching.\nExit Management: Complete move-out inspections.\nCost: Flat fee per placement.", false, 5)}
+                    {renderInput("description", "Subheadings & Bullet Points (Format: Subheading: Details)", "textarea", description, (e) => setDescription(e.target.value), <IconListDetails className="h-4 w-4" />, "Background Checks: Rigorous tenant verification and reference matching.\nExit Management: Complete move-out inspections.\nCost : Flat fee per placement.", false, 5)}
                     <p className="mt-1.5 text-[11px] text-gray-500 italic bg-amber-50 p-2 rounded border border-amber-200/60">
                         ✨ <b>Formatting guide:</b> Write each line as <span className="font-mono font-bold text-gray-800">Subheading: Description</span> to automatically display italicized subheadings, bold prefixes, and bullet point items matching your design.
                     </p>

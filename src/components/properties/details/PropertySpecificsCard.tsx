@@ -46,7 +46,7 @@ const PropertySpecificsCard: React.FC<PropertySpecificsCardProps> = ({
                         {renderDetailItem("Balconies", houseDetails.num_balconies, <IconNumber size={14} />)}
                         {renderDetailItem("Total Floors (Building)", houseDetails.total_floors, <IconBuilding size={14} />)}
                         {renderDetailItem("Floor Number", houseDetails.floor_number, <IconBuilding size={14} />)}
-                        {renderDetailItem("Car Parking", houseDetails.num_carparking, <IconNumber size={14} />)}
+                        {renderDetailItem("Car Parking", houseDetails.car_parking ? (houseDetails.car_parking.charAt(0).toUpperCase() + houseDetails.car_parking.slice(1).toLowerCase()) : houseDetails.num_carparking, <IconNumber size={14} />)}
                         {renderDetailItem("Furnishing", displayUtils.getDisplayValue(displayUtils.furnishedStatusMap, houseDetails.furnished_status), <IconArmchair size={14} />)}
                         {renderDetailItem("Facing Direction", displayUtils.getDisplayValue(displayUtils.directionMap, houseDetails.facing_direction), <IconCompass size={14} />)}
                         {renderDetailItem("Corner Plot", houseDetails.is_corner_plot)}
@@ -59,6 +59,7 @@ const PropertySpecificsCard: React.FC<PropertySpecificsCardProps> = ({
                         {renderDetailItem("Land Type", displayUtils.getDisplayValue(displayUtils.landTypeMap, landDetails.land_type))}
                         {renderDetailItem("Plot Dimensions", landDetails.plot_dimensions, <IconDimensions size={14} />)}
                         {renderDetailItem("Road Access Width", landDetails.road_access_width_ft + ' ft.', <IconRoad size={14} />)}
+                        {renderDetailItem("DTCP Approved", landDetails.is_dtcp_approved ? "Yes" : "No")}
                     </>
                 )}
                 {propertyData.property_type === 'BUILDING' && 'building_type' in buildingDetails && (

@@ -36,7 +36,7 @@ const defaultHouseDetails: HouseDetailsJson = {
 const defaultLandDetails: LandDetailsJson = {
     land_name: '',
     land_type: 'RESIDENTIAL', plot_dimensions: '', road_access_width_ft: 0,
-    is_corner_plot: false
+    is_corner_plot: false, is_dtcp_approved: false
 };
 const defaultBuildingDetails: BuildingDetailsJson = {
     building_name: '',
@@ -76,8 +76,8 @@ function PropertyFormModalBody({
     const [listingType, setListingType] = useState<ListingType>(property?.listing_type || 'RENTAL');
     const [price, setPrice] = useState<number>(property?.price || 0);
     const [advanceAmount, setAdvanceAmount] = useState<number | undefined>(property?.advance_amount ?? undefined);
-    const [area, setArea] = useState<number>(property?.area || 0);
-    const [areaUnit, setAreaUnit] = useState<AreaUnit>(property?.area_unit || 'SQ_FT');
+    const [area, setArea] = useState<number | undefined>(property?.area ?? undefined);
+    const [areaUnit, setAreaUnit] = useState<AreaUnit | undefined>(property?.area_unit ?? undefined);
     const [description, setDescription] = useState<string | undefined>(property?.description ?? undefined);
     const [locality, setLocality] = useState<string>(property?.locality || '');
     const [city, setCity] = useState<string>(property?.city || '');
@@ -132,6 +132,9 @@ function PropertyFormModalBody({
     const handlePropertyTypeChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const newType = e.target.value as PropertyType;
         setPropertyType(newType);
+        if (newType === 'LAND') {
+            setAvailabilityStatus('READY_TO_MOVE');
+        }
 
         switch (newType) {
             case 'HOUSE': setDetailsState(defaultHouseDetails); break;
@@ -179,9 +182,9 @@ function PropertyFormModalBody({
             if (isEditing && property) {
                 const updateParams: UpdatePropertyAdminParams = {
                     p_property_id: property.property_id, p_property_type: propertyType, p_listing_type: listingType, p_price: price,
-                    p_advance_amount: advanceAmount, p_area: area, p_area_unit: areaUnit, p_description: description, p_locality: locality,
+                    p_advance_amount: advanceAmount, p_area: area ?? null as any, p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality,
                     p_city: city, p_address: address, p_pincode: pincode, p_youtube_url: youtubeUrl, p_latitude: latitude, p_longitude: longitude,
-                    p_year_built: parseNullableNumberInput(yearBuilt?.toString() ?? ''), p_nearest_hospital: parseNullableNumberInput(nearestHospital?.toString() ?? ''),
+                    p_year_built: propertyType === 'LAND' ? null : parseNullableNumberInput(yearBuilt?.toString() ?? ''), p_nearest_hospital: parseNullableNumberInput(nearestHospital?.toString() ?? ''),
                     p_nearest_busstop: parseNullableNumberInput(nearestBusstop?.toString() ?? ''), p_nearest_gym: parseNullableNumberInput(nearestGym?.toString() ?? ''),
                     p_nearest_park: parseNullableNumberInput(nearestPark?.toString() ?? ''), p_nearest_school: parseNullableNumberInput(nearestSchool?.toString() ?? ''),
                     p_nearest_swimmingpool: parseNullableNumberInput(nearestSwimmingpool?.toString() ?? ''), p_proximity_unit: proximityUnit,
@@ -195,8 +198,8 @@ function PropertyFormModalBody({
                 showSuccessNotification("Property Updated", "Property updated successfully!");
             } else {
                 const insertParams: InsertPropertyAdminParams = {
-                    p_property_type: propertyType, p_listing_type: listingType, p_price: price, p_advance_amount: advanceAmount, p_area: area,
-                    p_area_unit: areaUnit, p_description: description, p_locality: locality, p_city: city, p_address: address, p_pincode: pincode,
+                    p_property_type: propertyType, p_listing_type: listingType, p_price: price, p_advance_amount: advanceAmount, p_area: area ?? null as any,
+                    p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality, p_city: city, p_address: address, p_pincode: pincode,
                     p_details: detailsToSend, p_inventory_details: inventoryDetailsToSend, p_youtube_url: youtubeUrl, p_latitude: latitude,
                     p_longitude: longitude, p_year_built: yearBuilt, p_nearest_hospital: nearestHospital, p_nearest_busstop: nearestBusstop,
                     p_nearest_gym: nearestGym, p_nearest_park: nearestPark, p_nearest_school: nearestSchool,
@@ -258,7 +261,19 @@ function PropertyFormModalBody({
 
     const propertyTypeOptions = Object.entries(displayUtils.propertyTypeMap).map(([value, label]) => ({ value, label }));
     const listingTypeOptions = Object.entries(displayUtils.listingTypeMap).map(([value, label]) => ({ value, label }));
-    const areaUnitOptions = Object.entries(displayUtils.areaUnitMap).map(([value, label]) => ({ value, label }));
+    const areaUnitOptions = [
+        { value: '', label: 'Select Area Unit' },
+        ...Object.entries(displayUtils.areaUnitMap).map(([value, label]) => ({ value, label }))
+    ];
+    const carParkingOptions = [
+        { value: '', label: 'Select Parking Option' },
+        { value: 'COVERED', label: 'Covered' },
+        { value: 'AMPLE', label: 'Ample' },
+        { value: 'OPEN', label: 'Open' }
+    ];
+    const availabilityStatusOptions = Object.entries(displayUtils.availabilityStatusMap)
+        .filter(([value]) => !(propertyType === 'LAND' && value === 'UNDER_CONSTRUCTION'))
+        .map(([value, label]) => ({ value, label }));
     const houseTypeOptions = Object.entries(displayUtils.houseTypeMap).map(([value, label]) => ({ value, label }));
     const furnishedStatusOptions = Object.entries(displayUtils.furnishedStatusMap).map(([value, label]) => ({ value, label }));
     const directionOptions = Object.entries(displayUtils.directionMap).map(([value, label]) => ({ value, label }));
@@ -271,7 +286,7 @@ function PropertyFormModalBody({
     const managementPlanOptions = [{ value: '', label: 'None' }, ...managementPlans.map(p => ({ value: p.plan_id, label: `${p.name} (${p.percentage}%)` }))];
     const propertyAdminStatusOptions = Object.entries(displayUtils.propertyAdminStatusMap).map(([value, label]) => ({ value, label }));
     const submitterTypeOptions = Object.entries(displayUtils.submitterTypeMap).map(([value, label]) => ({ value, label }));
-    const availabilityStatusOptions = Object.entries(displayUtils.availabilityStatusMap).map(([value, label]) => ({ value, label }));
+
 
     const isHouseDetails = (details: DetailsState): details is HouseDetailsJson => 'house_name' in details && details !== null;
     const isLandDetails = (details: DetailsState): details is LandDetailsJson => 'land_name' in details && details !== null;
@@ -296,8 +311,8 @@ function PropertyFormModalBody({
                             {renderSelectWithIcon("listingType", "Listing Type", listingType, (e) => setListingType(e.target.value as ListingType), <IconTag className="h-4 w-4" />, listingTypeOptions, true)}
                             {renderInputWithIcon("price", "Price (INR)", "number", price, (e) => setPrice(parseNumberInput(e.target.value)), <IconCoinRupee className="h-4 w-4" />, "0", 0, "0.01", true)}
                             {renderInputWithIcon("advanceAmount", "Advance Amount (INR)", "number", advanceAmount, (e) => setAdvanceAmount(parseNullableNumberInput(e.target.value)), <IconCoinRupee className="h-4 w-4" />, "Optional", 0, "0.01", false)}
-                            {renderInputWithIcon("area", "Area", "number", area, (e) => setArea(parseNumberInput(e.target.value)), <IconRuler className="h-4 w-4" />, "0", 0, "0.01", true)}
-                            {renderSelectWithIcon("areaUnit", "Area Unit", areaUnit, (e) => setAreaUnit(e.target.value as AreaUnit), <IconDimensions className="h-4 w-4" />, areaUnitOptions, true)}
+                            {renderInputWithIcon("area", "Area", "number", area, (e) => setArea(parseNullableNumberInput(e.target.value)), <IconRuler className="h-4 w-4" />, "Optional", 0, "0.01", false)}
+                            {renderSelectWithIcon("areaUnit", "Area Unit", areaUnit || '', (e) => setAreaUnit(e.target.value as AreaUnit || undefined), <IconDimensions className="h-4 w-4" />, areaUnitOptions, false)}
                             {renderSelectWithIcon("adminStatus", "Admin Status", adminStatus, (e) => setAdminStatus(e.target.value as PropertyAdminStatus), <IconCircleCheck className="h-4 w-4" />, propertyAdminStatusOptions, true)}
                         </div>
                     </fieldset>
@@ -337,7 +352,7 @@ function PropertyFormModalBody({
                         {renderInputWithIcon("numBalconies", "Balconies", "number", detailsState.num_balconies, (e) => updateDetails('num_balconies', parseNumberInput(e.target.value)), <IconNumber className="h-4 w-4" />, "e.g., 1", 0)}
                         {renderInputWithIcon("totalFloorsHouse", "Total Floors (Building)", "number", detailsState.total_floors, (e) => updateDetails('total_floors', Math.max(1, parseNumberInput(e.target.value))), <IconBuilding className="h-4 w-4" />, "e.g., 10", 1)}
                         {renderInputWithIcon("floorNumber", "Floor Number", "number", detailsState.floor_number, (e) => updateDetails('floor_number', Math.max(0, parseNumberInput(e.target.value))), <IconBuilding className="h-4 w-4" />, "e.g., 5", 0)}
-                        {renderInputWithIcon("numCarparking", "Car Parking", "number", detailsState.num_carparking, (e) => updateDetails('num_carparking', Math.max(0, parseNumberInput(e.target.value))), <IconNumber className="h-4 w-4" />, "e.g., 1", 0)}
+                        {renderSelectWithIcon("carParking", "Car Parking", detailsState.car_parking ?? '', (e) => updateDetails('car_parking', e.target.value || undefined), <IconNumber className="h-4 w-4" />, carParkingOptions)}
                         {renderSelectWithIcon("furnishedStatus", "Furnishing", detailsState.furnished_status ?? 'UNFURNISHED', (e) => updateDetails('furnished_status', e.target.value as FurnishedStatus), <IconArmchair className="h-4 w-4" />, furnishedStatusOptions)}
                         {renderSelectWithIcon("facingDirection", "Facing Direction", detailsState.facing_direction ?? 'NORTH', (e) => updateDetails('facing_direction', e.target.value as Direction), <IconCompass className="h-4 w-4" />, directionOptions)}
                         {renderSelectWithIcon("isCornerPlotHouse", "Corner Plot (House)", detailsState.is_corner_plot ?? false, (e) => updateDetails('is_corner_plot', e.target.value === 'true'), <IconCheckbox className="h-4 w-4" />, booleanOptions)}
@@ -351,6 +366,7 @@ function PropertyFormModalBody({
                         {renderInputWithIcon("plotDimensions", "Plot Dimensions", "text", detailsState.plot_dimensions, (e) => updateDetails('plot_dimensions', e.target.value), <IconDimensions className="h-4 w-4" />, "e.g., 50x100 ft")}
                         {renderInputWithIcon("roadAccessWidth", "Road Access Width (ft)", "number", detailsState.road_access_width_ft, (e) => updateDetails('road_access_width_ft', Math.max(0, parseNumberInput(e.target.value))), <IconRoad className="h-4 w-4" />, "e.g., 30", 0)}
                         {renderSelectWithIcon("isCornerPlotLand", "Corner Plot (Land)", detailsState.is_corner_plot ?? false, (e) => updateDetails('is_corner_plot', e.target.value === 'true'), <IconCheckbox className="h-4 w-4" />, booleanOptions)}
+                        {renderSelectWithIcon("isDtcpApproved", "DTCP Approved", detailsState.is_dtcp_approved ?? false, (e) => updateDetails('is_dtcp_approved', e.target.value === 'true'), <IconSparkles className="h-4 w-4" />, booleanOptions)}
                     </div></fieldset>)}
                     {isBuildingDetails(detailsState) && (<fieldset className="border border-gray-200 p-4 rounded-md"><legend className="text-base font-medium text-gray-900 px-2">Building Details</legend><div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
                         {renderInputWithIcon("buildingName", "Building Title/Name", "text", detailsState.building_name, (e) => updateDetails('building_name', e.target.value), <IconBuilding className="h-4 w-4" />, "e.g., Corporate Tower", undefined, undefined, true)}
@@ -384,7 +400,7 @@ function PropertyFormModalBody({
                         <legend className="text-base font-medium text-gray-900 px-2">Additional Information</legend>
                         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-6">
                             {renderInputWithIcon("youtubeUrl", "YouTube Link", "text", youtubeUrl, (e) => setYoutubeUrl(e.target.value || undefined), <IconVideo className="h-4 w-4" />, "e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ", 0, undefined, false)}
-                            {renderInputWithIcon("yearBuilt", "Year Built", "number", yearBuilt, (e) => setYearBuilt(parseNullableNumberInput(e.target.value)), <IconCalendar className="h-4 w-4" />, "e.g., 2010", 1800)}
+                            {propertyType !== 'LAND' && renderInputWithIcon("yearBuilt", "Year Built", "number", yearBuilt, (e) => setYearBuilt(parseNullableNumberInput(e.target.value)), <IconCalendar className="h-4 w-4" />, "e.g., 2010", 1800)}
                             {renderInputWithIcon("description", "Public Description", "textarea", description, (e) => setDescription(e.target.value || undefined), <IconListDetails className="h-4 w-4" />, "Detailed property description...", undefined, undefined, false, 5)}
                             {renderInputWithIcon("submitterNotes", "Submitter Notes", "textarea", submitterNotes, (e) => setSubmitterNotes(e.target.value || undefined), <IconNotes className="h-4 w-4" />, "Notes from the person submitting...", undefined, undefined, false, 3)}
                             {renderInputWithIcon("adminNotes", "Admin Notes", "textarea", adminNotes, (e) => setAdminNotes(e.target.value || undefined), <IconNotes className="h-4 w-4" />, "Internal notes for admins...", undefined, undefined, false, 3)}
