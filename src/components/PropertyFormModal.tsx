@@ -184,7 +184,7 @@ function PropertyFormModalBody({
                     p_property_id: property.property_id, p_property_type: propertyType, p_listing_type: listingType, p_price: price,
                     p_advance_amount: advanceAmount, p_area: area ?? null as any, p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality,
                     p_city: city, p_address: address, p_pincode: pincode, p_youtube_url: youtubeUrl, p_latitude: latitude, p_longitude: longitude,
-                    p_year_built: propertyType === 'LAND' ? null : parseNullableNumberInput(yearBuilt?.toString() ?? ''), p_nearest_hospital: parseNullableNumberInput(nearestHospital?.toString() ?? ''),
+                    p_year_built: propertyType === 'LAND' ? undefined : parseNullableNumberInput(yearBuilt?.toString() ?? ''), p_nearest_hospital: parseNullableNumberInput(nearestHospital?.toString() ?? ''),
                     p_nearest_busstop: parseNullableNumberInput(nearestBusstop?.toString() ?? ''), p_nearest_gym: parseNullableNumberInput(nearestGym?.toString() ?? ''),
                     p_nearest_park: parseNullableNumberInput(nearestPark?.toString() ?? ''), p_nearest_school: parseNullableNumberInput(nearestSchool?.toString() ?? ''),
                     p_nearest_swimmingpool: parseNullableNumberInput(nearestSwimmingpool?.toString() ?? ''), p_proximity_unit: proximityUnit,

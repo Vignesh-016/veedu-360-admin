@@ -1,6 +1,6 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { Fragment, useState, FormEvent, ChangeEvent } from 'react';
-import { IconX, IconFileText, IconListDetails, IconCheckbox, IconAlertCircle } from '@tabler/icons-react';
+import { IconX, IconFileText, IconListDetails, IconCheckbox, IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { Switch } from '@headlessui/react';
 import { CreateManagementPlanAdminParams, ManagementPlanInfo, UpdateManagementPlanAdminParams } from '../lib/types';
 import api from '../lib/supabaseClient';
@@ -21,13 +21,43 @@ interface ManagementPlanFormBodyProps {
     onSuccess: () => void;
 }
 
+interface FeatureRow {
+    heading: string;
+    details: string;
+}
+
+const SUBTITLE_PREFIX = 'Subtitle:';
+
+const getFeatureRows = (description: string | null): FeatureRow[] => {
+    const rows = (description || '')
+        .split('\n')
+        .filter(line => line.trim() && !/^button\s*:/i.test(line.trim()) && !/^subtitle\s*:/i.test(line.trim()))
+        .map(line => {
+            const separatorIndex = line.indexOf(':');
+            return separatorIndex === -1
+                ? { heading: '', details: line.trim() }
+                : {
+                    heading: line.slice(0, separatorIndex).trim(),
+                    details: line.slice(separatorIndex + 1).trim()
+                };
+        });
+
+    return rows.length > 0 ? rows : [{ heading: '', details: '' }];
+};
+
 function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanFormBodyProps) {
     const { showSuccessNotification, showErrorNotification } = useNotification();
     const isEditing = !!plan;
 
     const [name, setName] = useState(plan?.name || '');
     const [percentage] = useState<number | string>(plan?.percentage.toString() || '');
-    const [description, setDescription] = useState(plan?.description || '');
+    const [featureRows, setFeatureRows] = useState<FeatureRow[]>(() => getFeatureRows(plan?.description || null));
+    const [subtitle, setSubtitle] = useState(
+        (plan?.description || '').split('\n').find(line => /^subtitle\s*:/i.test(line.trim()))?.replace(/^subtitle\s*:/i, '').trim() || ''
+    );
+    const [buttonText, setButtonText] = useState(
+        (plan?.description || '').split('\n').find(line => /^button\s*:/i.test(line.trim()))?.replace(/^button\s*:/i, '').trim() || 'Learn More & Select'
+    );
     const [isActive, setIsActive] = useState(plan?.is_active ?? true);
 
     const [loading, setLoading] = useState(false);
@@ -42,6 +72,19 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         if (isNaN(numericPercentage)) {
             numericPercentage = 0;
         }
+        const contentDescription = [
+            subtitle.trim() ? `${SUBTITLE_PREFIX} ${subtitle.trim()}` : '',
+            ...featureRows
+                .map(row => row.heading.trim() ? `${row.heading.trim()}: ${row.details.trim()}` : row.details.trim())
+                .filter(Boolean),
+            `Button: ${buttonText.trim()}`
+        ].join('\n');
+
+        if (!buttonText.trim()) {
+            setError('Button content is required.');
+            setLoading(false);
+            return;
+        }
 
         try {
             if (isEditing && plan) {
@@ -49,7 +92,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                     p_plan_id: plan.plan_id,
                     p_name: name,
                     p_percentage: numericPercentage,
-                    p_description: description || undefined,
+                    p_description: contentDescription || undefined,
                     p_is_active: isActive
                 };
                 const { error: updateError } = await api.updateManagementPlanAdmin(updateParams);
@@ -59,7 +102,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 const createParams: CreateManagementPlanAdminParams = {
                     p_name: name,
                     p_percentage: numericPercentage,
-                    p_description: description || undefined,
+                    p_description: contentDescription || undefined,
                     p_is_active: isActive
                 };
                 const { data: newPlanId, error: insertError } = await api.createManagementPlanAdmin(createParams);
@@ -107,6 +150,12 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         </div>
     );
 
+    const updateFeatureRow = (index: number, field: keyof FeatureRow, value: string) => {
+        setFeatureRows(currentRows => currentRows.map((row, rowIndex) => (
+            rowIndex === index ? { ...row, [field]: value } : row
+        )));
+    };
+
     return (
         <form onSubmit={handleSubmit}>
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
@@ -127,12 +176,85 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                     </div>
                 )}
                 {renderInput("name", "Card Header Title", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Tenant Placement & Transition", true)}
+                {renderInput("subtitle", "Card Subtitle", "text", subtitle, (e) => setSubtitle(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Complete support for owners and tenants")}
                 <div>
-                    {renderInput("description", "Subheadings & Bullet Points (Format: Subheading: Details)", "textarea", description, (e) => setDescription(e.target.value), <IconListDetails className="h-4 w-4" />, "Background Checks: Rigorous tenant verification and reference matching.\nExit Management: Complete move-out inspections.\nCost : Flat fee per placement.", false, 5)}
-                    <p className="mt-1.5 text-[11px] text-gray-500 italic bg-amber-50 p-2 rounded border border-amber-200/60">
-                        ✨ <b>Formatting guide:</b> Write each line as <span className="font-mono font-bold text-gray-800">Subheading: Description</span> to automatically display italicized subheadings, bold prefixes, and bullet point items matching your design.
+                    <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Service Features
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => setFeatureRows(rows => [...rows, { heading: '', details: '' }])}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900"
+                            disabled={loading}
+                        >
+                            <IconPlus size={14} /> Add Feature
+                        </button>
+                    </div>
+                    <div className="mt-2 space-y-3">
+                        {featureRows.map((row, index) => (
+                            <div key={index} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.5fr)_auto] sm:items-start">
+                                    <input
+                                        value={row.heading}
+                                        onChange={(event) => updateFeatureRow(index, 'heading', event.target.value)}
+                                        className={getBaseInputClasses()}
+                                        placeholder="Heading (optional)"
+                                        disabled={loading}
+                                    />
+                                    <input
+                                        value={row.details}
+                                        onChange={(event) => updateFeatureRow(index, 'details', event.target.value)}
+                                        className={getBaseInputClasses()}
+                                        placeholder={row.heading && !row.details ? 'Leave empty for heading only' : 'Description point'}
+                                        disabled={loading}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeatureRows(rows => rows.filter((_, rowIndex) => rowIndex !== index))}
+                                        className="inline-flex h-10 items-center justify-center rounded-md p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                        aria-label="Remove feature"
+                                        disabled={loading || featureRows.length === 1}
+                                    >
+                                        <IconTrash size={16} />
+                                    </button>
+                                    <div className="flex items-center justify-end gap-1 sm:col-span-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFeatureRows(rows => {
+                                                if (index === 0) return rows;
+                                                const nextRows = [...rows];
+                                                [nextRows[index - 1], nextRows[index]] = [nextRows[index], nextRows[index - 1]];
+                                                return nextRows;
+                                            })}
+                                            className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                                            disabled={loading || index === 0}
+                                        >
+                                            Move up
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFeatureRows(rows => {
+                                                if (index === rows.length - 1) return rows;
+                                                const nextRows = [...rows];
+                                                [nextRows[index], nextRows[index + 1]] = [nextRows[index + 1], nextRows[index]];
+                                                return nextRows;
+                                            })}
+                                            className="text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                                            disabled={loading || index === featureRows.length - 1}
+                                        >
+                                            Move down
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500">
+                        Use a heading row for section labels. Add description points in separate rows without a heading.
                     </p>
                 </div>
+                {renderInput("buttonText", "Button Content", "text", buttonText, (e) => setButtonText(e.target.value), <IconListDetails className="h-4 w-4" />, "e.g., Select This Plan", true)}
                 <div className="flex items-center justify-between">
                     <span className="flex items-center text-sm font-medium text-gray-700">
                         <IconCheckbox className="h-4 w-4 mr-2 text-gray-400" />
