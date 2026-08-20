@@ -735,7 +735,7 @@ export interface ContactPlan {
 }
 
 export type CustomerEnquiryStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
-export type CustomerEnquiryType = 'TENANT' | 'OWNER';
+export type CustomerEnquiryType = 'TENANT' | 'OWNER' | 'SELLER' | 'BUYER';
 
 export interface CustomerEnquiryAdmin {
     enquiry_id: string;
