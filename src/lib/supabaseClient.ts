@@ -374,7 +374,7 @@ class RealEstateAdminApi {
         return this.handleRpcAny<null>('delete_unused_management_plan_admin', { p_plan_id: planId });
     }
 
-    async listManagementPlansAdmin(isActiveFilter?: boolean, offset: number = 0, limit: number = 25): Promise<ApiResponse<ManagementPlanInfo[]>> {
+    async listManagementPlansAdmin(isActiveFilter?: boolean): Promise<ApiResponse<ManagementPlanInfo[]>> {
         return this.handleRpcAny<ManagementPlanInfo[]>('list_management_plans_ordered', { p_is_active_filter: isActiveFilter ?? null });
     }
 
