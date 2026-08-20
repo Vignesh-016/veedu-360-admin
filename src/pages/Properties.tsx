@@ -197,8 +197,9 @@ function Properties() {
         try {
             const { data, error: fetchError } = await api.getPropertiesAdmin(apiCallParams);
             if (fetchError) throw new Error(typeof fetchError === 'string' ? fetchError : fetchError.message);
-            setProperties(data || []);
-            setTotalCount(data?.[0]?.total_count ?? (data?.length || 0));
+            const visibleProperties = (data || []).filter(property => String(property.admin_status) !== 'PAYMENT_PENDING');
+            setProperties(visibleProperties);
+            setTotalCount(visibleProperties.length > 0 ? visibleProperties[0].total_count : 0);
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch properties';
             setError(errMsg); showErrorNotification("Error Fetching Properties", errMsg);
