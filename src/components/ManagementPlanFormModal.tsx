@@ -1,6 +1,6 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { Fragment, useState, FormEvent, ChangeEvent } from 'react';
-import { IconX, IconFileText, IconListDetails, IconCheckbox, IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconX, IconFileText, IconListDetails, IconCheckbox, IconAlertCircle, IconPlus, IconTrash, IconCurrencyRupee } from '@tabler/icons-react';
 import { Switch } from '@headlessui/react';
 import { CreateManagementPlanAdminParams, ManagementPlanInfo, UpdateManagementPlanAdminParams } from '../lib/types';
 import api from '../lib/supabaseClient';
@@ -51,6 +51,8 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
 
     const [name, setName] = useState(plan?.name || '');
     const [percentage] = useState<number | string>(plan?.percentage.toString() || '');
+    const [postPrice, setPostPrice] = useState<number | string>(plan?.post_price?.toString() || '100');
+    const [documentProcessingFeeEnabled, setDocumentProcessingFeeEnabled] = useState(plan?.document_processing_fee_enabled ?? false);
     const [featureRows, setFeatureRows] = useState<FeatureRow[]>(() => getFeatureRows(plan?.description || null));
     const [subtitle, setSubtitle] = useState(
         (plan?.description || '').split('\n').find(line => /^subtitle\s*:/i.test(line.trim()))?.replace(/^subtitle\s*:/i, '').trim() || ''
@@ -72,6 +74,13 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         if (isNaN(numericPercentage)) {
             numericPercentage = 0;
         }
+        const numericPostPrice = parseFloat(postPrice as string);
+        if (documentProcessingFeeEnabled && (isNaN(numericPostPrice) || numericPostPrice <= 0)) {
+            setError('Document processing price must be greater than zero when collection is enabled.');
+            setLoading(false);
+            return;
+        }
+        const effectivePostPrice = isNaN(numericPostPrice) ? 0 : numericPostPrice;
         const contentDescription = [
             subtitle.trim() ? `${SUBTITLE_PREFIX} ${subtitle.trim()}` : '',
             ...featureRows
@@ -97,6 +106,10 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 };
                 const { error: updateError } = await api.updateManagementPlanAdmin(updateParams);
                 if (updateError) throw updateError;
+                const { error: priceError } = await api.updateManagementPlanPostPriceAdmin(plan.plan_id, effectivePostPrice);
+                if (priceError) throw priceError;
+                const { error: documentFeeError } = await api.updateManagementPlanDocumentProcessingAdmin(plan.plan_id, documentProcessingFeeEnabled);
+                if (documentFeeError) throw documentFeeError;
                 showSuccessNotification("Plan Updated", "Management plan updated successfully!");
             } else {
                 const createParams: CreateManagementPlanAdminParams = {
@@ -108,6 +121,10 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 const { data: newPlanId, error: insertError } = await api.createManagementPlanAdmin(createParams);
                 if (insertError) throw insertError;
                 if (!newPlanId) throw new Error("Failed to get new plan ID after insertion.");
+                const { error: priceError } = await api.updateManagementPlanPostPriceAdmin(newPlanId, effectivePostPrice);
+                if (priceError) throw priceError;
+                const { error: documentFeeError } = await api.updateManagementPlanDocumentProcessingAdmin(newPlanId, documentProcessingFeeEnabled);
+                if (documentFeeError) throw documentFeeError;
                 showSuccessNotification("Plan Added", `Management plan added successfully! ID: ${newPlanId}`);
             }
 
@@ -177,6 +194,11 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 )}
                 {renderInput("name", "Card Header Title", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Tenant Placement & Transition", true)}
                 {renderInput("subtitle", "Card Subtitle", "text", subtitle, (e) => setSubtitle(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Complete support for owners and tenants")}
+                <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer">
+                    <input type="checkbox" checked={documentProcessingFeeEnabled} onChange={(event) => setDocumentProcessingFeeEnabled(event.target.checked)} disabled={loading} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2C4964] focus:ring-[#2C4964]" />
+                    <span><span className="block text-sm font-medium text-gray-800">Collect a document-processing charge</span><span className="mt-0.5 block text-xs text-gray-500">Only enabled plans display and collect the configured amount.</span></span>
+                </label>
+                {renderInput("postPrice", "Document Processing Price (₹)", "number", postPrice, (e) => setPostPrice(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "100", documentProcessingFeeEnabled, undefined, 0, undefined, 0.01)}
                 <div>
                     <div className="flex items-center justify-between">
                         <label className="block text-sm font-medium text-gray-700">

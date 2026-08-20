@@ -211,6 +211,8 @@ function ManagementPlansPage() {
                                                     <IconPercentage size={14} className="mr-2 opacity-60" /> Percentage
                                                 </div>
                                             </th>
+                                            <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-[0.2em]">Post Price</th>
+                                            <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-[0.2em]">Fee Purpose</th>
                                             <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-[0.2em]">
                                                 <div className="flex items-center text-gray-500">
                                                     Description
@@ -226,6 +228,8 @@ function ManagementPlansPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-medium text-slate-700 group-hover:text-blue-600 transition-colors">{plan.name}</div>
                                                 </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">₹{Number(plan.post_price).toFixed(2)}</td>
+                                                <td className="px-6 py-4 text-xs text-gray-600">{Number(plan.post_price) === 0 ? <span className="font-semibold text-emerald-700">Free</span> : plan.document_processing_fee_enabled ? 'Document processing' : 'Property post'}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         <span className="text-sm font-bold text-gray-900 font-mono tracking-tight">{plan.percentage.toFixed(2)}%</span>

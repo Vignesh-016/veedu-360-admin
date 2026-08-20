@@ -2,7 +2,7 @@ import {
     IconHome, IconBuilding, IconUsers, IconClipboardList, IconReceipt,
     IconUserPlus, IconMessageCircle, IconTruckDelivery, IconTicket, IconTools,
     IconCertificate, IconCash, IconHomeCheck, IconRoute, IconFileDescription,
-    IconFileText, IconSettings, IconPhoneCall
+    IconFileText, IconSettings, IconPhoneCall, IconMessageDots
 } from '@tabler/icons-react';
 import { AdminRole } from './types';
 
@@ -54,6 +54,16 @@ export const appNavigationItems: AppNavigationItem[] = [
         icon: <IconMessageCircle size={20} />,
         description: 'Manage customer visits, wishlist.',
         allowedRoles: ['super-admin', 'telecalling-tenant-team'],
+        isSidebarLink: true,
+        isDashboardCard: true,
+    },
+    {
+        id: 'enquiries',
+        path: '/enquiries',
+        label: 'Enquiries',
+        icon: <IconMessageDots size={20} />,
+        description: 'Review homepage owner and tenant enquiries.',
+        allowedRoles: ['super-admin', 'telecalling-owner-team', 'telecalling-tenant-team'],
         isSidebarLink: true,
         isDashboardCard: true,
     },

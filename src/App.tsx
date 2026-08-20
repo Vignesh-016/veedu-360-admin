@@ -32,6 +32,7 @@ const CustomerDetailsPage = lazy(() => import('./pages/CustomerDetailsPage'));
 const MySalesVisits = lazy(() => import('./pages/MySalesVisits'));
 const RentalApplications = lazy(() => import('./pages/RentalApplications'));
 const HomepageSettings = lazy(() => import('./pages/HomepageSettings'));
+const Enquiries = lazy(() => import('./pages/Enquiries'));
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function App() {
                   <Route path="/my-sales-visits" element={<MySalesVisits />} />
                   <Route path="/rental-applications" element={<RentalApplications />} />
                   <Route path="/homepage-settings" element={<HomepageSettings />} />
+                  <Route path="/enquiries" element={<Enquiries />} />
                 </Route>
 
                 {/* --- Not Found Route --- */}

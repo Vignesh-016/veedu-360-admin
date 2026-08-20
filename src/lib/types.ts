@@ -137,7 +137,11 @@ export interface BuildingDetailsJson {
 }
 
 // --- Management & Visit Plan Info ---
-export type ManagementPlanInfo = Database['public']['Functions']['list_management_plans_admin']['Returns'][0]
+export type ManagementPlanInfo = Database['public']['Functions']['list_management_plans_admin']['Returns'][0] & {
+    post_price: number;
+    document_processing_fee_enabled: boolean;
+    display_order?: number;
+}
 
 export type VisitPlanAdminView = Database['public']['Functions']['get_all_visit_plans_admin']['Returns'][0]
 
@@ -730,6 +734,27 @@ export interface ContactPlan {
     updated_at: string;
 }
 
+export type CustomerEnquiryStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
+export type CustomerEnquiryType = 'TENANT' | 'OWNER';
+
+export interface CustomerEnquiryAdmin {
+    enquiry_id: string;
+    user_id: string;
+    enquiry_type: CustomerEnquiryType;
+    customer_name: string;
+    contact_phone: string;
+    email: string | null;
+    occupancy_type: string | null;
+    budget: number | null;
+    bedroom_requirement: string | null;
+    preferred_area: string | null;
+    message: string | null;
+    status: CustomerEnquiryStatus;
+    created_at: string;
+    updated_at: string;
+    total_count: number;
+}
+
 export interface InsertContactPlanAdminParams {
     p_name: string;
     p_price: number;
@@ -745,4 +770,4 @@ export interface UpdateContactPlanAdminParams {
     p_contacts: number;
     p_description: string;
     p_is_active: boolean;
-}
+}

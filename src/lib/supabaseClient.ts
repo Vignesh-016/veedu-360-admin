@@ -52,7 +52,7 @@ import {
     AdminAssignRentalApplicationParams,
     AdminUpdateRentalApplicationStatusParams,
     AdminAddRentalApplicationNoteParams,
-    HomepageSettings
+    HomepageSettings, CustomerEnquiryAdmin, CustomerEnquiryStatus, CustomerEnquiryType
 } from './types';
 import { FullPropertyDetailsAdminData } from './reports/propertyType';
 
@@ -356,8 +356,30 @@ class RealEstateAdminApi {
         return this.handleRpc<null>('update_management_plan_admin', params);
     }
 
+    async updateManagementPlanPostPriceAdmin(planId: string, postPrice: number): Promise<ApiResponse<null>> {
+        return (this.supabase.rpc as any)('update_management_plan_post_price_admin', {
+            p_plan_id: planId,
+            p_post_price: postPrice,
+        }).then(({ data, error }: any) => ({ data, error }));
+    }
+
+    async updateManagementPlanDocumentProcessingAdmin(planId: string, enabled: boolean): Promise<ApiResponse<null>> {
+        return (this.supabase.rpc as any)('update_management_plan_document_processing_admin', {
+            p_plan_id: planId,
+            p_enabled: enabled,
+        }).then(({ data, error }: any) => ({ data, error }));
+    }
+
+    async deleteUnusedManagementPlanAdmin(planId: string): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('delete_unused_management_plan_admin', { p_plan_id: planId });
+    }
+
     async listManagementPlansAdmin(isActiveFilter?: boolean, offset: number = 0, limit: number = 25): Promise<ApiResponse<ManagementPlanInfo[]>> {
-        return this.handleRpc<ManagementPlanInfo[]>('list_management_plans_admin', { p_is_active_filter: isActiveFilter, p_offset: offset, p_limit: limit });
+        return this.handleRpcAny<ManagementPlanInfo[]>('list_management_plans_ordered', { p_is_active_filter: isActiveFilter ?? null });
+    }
+
+    async moveManagementPlanAdmin(planId: string, direction: 'up' | 'down'): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('move_management_plan_admin', { p_plan_id: planId, p_direction: direction });
     }
 
     async getManagementPlanDetailsAdmin(planId: string): Promise<ApiResponse<ManagementPlanInfo | null>> {
@@ -631,6 +653,19 @@ class RealEstateAdminApi {
             console.error("Failed to update homepage settings:", err);
             return { data: null, error: err.message || err };
         }
+    }
+
+    async listCustomerEnquiriesAdmin(params: { status?: CustomerEnquiryStatus; type?: CustomerEnquiryType; offset?: number; limit?: number; }): Promise<ApiResponse<CustomerEnquiryAdmin[]>> {
+        return this.handleRpcAny<CustomerEnquiryAdmin[]>('list_customer_enquiries_admin', {
+            p_status: params.status ?? null,
+            p_enquiry_type: params.type ?? null,
+            p_offset: params.offset ?? 0,
+            p_limit: params.limit ?? 25,
+        });
+    }
+
+    async updateCustomerEnquiryStatusAdmin(enquiryId: string, status: CustomerEnquiryStatus): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('update_customer_enquiry_status_admin', { p_enquiry_id: enquiryId, p_status: status });
     }
 }
 

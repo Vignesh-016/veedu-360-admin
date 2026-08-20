@@ -103,6 +103,7 @@ const PropertyList: React.FC<PropertyListProps> = ({
                             <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Type</th>
                             <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Listing</th>
                             <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Pricing</th>
+                            <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Management Plan</th>
                             <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Contact / Assignment</th>
                             <th scope="col" className="px-4 py-4 text-left text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Status</th>
                             <th scope="col" className="px-4 py-4 text-center text-[11px] font-medium text-gray-500 uppercase tracking-widest border-b border-gray-100">Actions</th>
@@ -169,6 +170,14 @@ const PropertyList: React.FC<PropertyListProps> = ({
                                         {property.advance_amount && property.listing_type === 'RENTAL' && property.advance_amount > 0 && (
                                             <div className="text-[10px] text-gray-500 mt-0.5 font-medium">Adv: ₹{property.advance_amount.toLocaleString('en-IN')}</div>
                                         )}
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        {property.management_plan_info ? (
+                                            <div className="min-w-[150px] rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2">
+                                                <p className="text-xs font-semibold text-indigo-900 leading-snug">{property.management_plan_info.name}</p>
+                                                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-indigo-600">{property.management_plan_info.percentage}% service plan</p>
+                                            </div>
+                                        ) : <span className="text-xs italic text-gray-400">No plan selected</span>}
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="space-y-2">

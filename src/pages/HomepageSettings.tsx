@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
     IconSettings, IconUpload, IconCheck, IconTrash,
-    IconLoader, IconPlus, IconWorld
+    IconLoader, IconPlus, IconWorld, IconArrowUp, IconArrowDown
 } from '@tabler/icons-react';
 
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -28,6 +28,8 @@ function HomepageSettingsPage() {
     const [loadingPlans, setLoadingPlans] = useState(false);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<ManagementPlanInfo | null>(null);
+    const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+    const [movingPlanId, setMovingPlanId] = useState<string | null>(null);
 
     const { showSuccessNotification, showErrorNotification } = useNotification();
 
@@ -81,6 +83,31 @@ function HomepageSettingsPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleDeletePlan = async (plan: ManagementPlanInfo) => {
+        const confirmed = window.confirm(`Delete “${plan.name}”? This is only possible when the plan has never been used by a property.`);
+        if (!confirmed) return;
+        setDeletingPlanId(plan.plan_id);
+        const { error: deleteError } = await api.deleteUnusedManagementPlanAdmin(plan.plan_id);
+        setDeletingPlanId(null);
+        if (deleteError) {
+            showErrorNotification('Plan not deleted', typeof deleteError === 'string' ? deleteError : 'Please deactivate the plan instead.');
+            return;
+        }
+        showSuccessNotification('Plan deleted', 'The unused management plan was deleted.');
+        fetchPlans();
+    };
+
+    const handleMovePlan = async (plan: ManagementPlanInfo, direction: 'up' | 'down') => {
+        setMovingPlanId(plan.plan_id);
+        const { error: moveError } = await api.moveManagementPlanAdmin(plan.plan_id, direction);
+        setMovingPlanId(null);
+        if (moveError) {
+            showErrorNotification('Could not change plan order', typeof moveError === 'string' ? moveError : 'Please try again.');
+            return;
+        }
+        fetchPlans();
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, pathKey: string, updateFn: (url: string) => void) => {
@@ -613,7 +640,7 @@ function HomepageSettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-center border-b pb-2 pt-6">
+                                <div className="flex flex-col gap-3 border-b pb-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-800">Management Services Section & Cards</h3>
                                         <p className="text-xs text-gray-500">Manage section header, description, and individual management plan cards.</p>
@@ -624,7 +651,7 @@ function HomepageSettingsPage() {
                                             setSelectedPlan(null);
                                             setIsPlanModalOpen(true);
                                         }}
-                                        className={`${getSecondaryButtonClasses()} !text-xs flex items-center gap-1`}
+                                        className={`${getPrimaryButtonClasses()} !text-xs flex items-center gap-1`}
                                     >
                                         <IconPlus size={14} />
                                         Add Service Card / Plan
@@ -660,7 +687,7 @@ function HomepageSettingsPage() {
                                 {/* Inline Service Cards / Plans Management List */}
                                 <div className="pt-4 space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <h4 className="font-bold text-gray-700 text-sm">Management Plan Cards ({plans.length})</h4>
+                                        <div><h4 className="font-bold text-gray-700 text-sm">Management Plan Cards ({plans.length})</h4><p className="mt-1 text-xs text-gray-500">Use the arrows to arrange paid cards. Free plans are always shown last.</p></div>
                                     </div>
                                     {loadingPlans ? (
                                         <div className="flex justify-center py-4">
@@ -669,17 +696,30 @@ function HomepageSettingsPage() {
                                     ) : plans.length === 0 ? (
                                         <p className="text-xs text-gray-500 italic py-2">No management plans available. Click "Add Service Card / Plan" to create one.</p>
                                     ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             {plans.map((p) => (
-                                                <div key={p.plan_id} className="p-3.5 border border-gray-200 rounded-xl bg-gray-50 flex justify-between items-start">
-                                                    <div>
+                                                (() => {
+                                                    const isFreePlan = Number(p.post_price || 0) <= 0;
+                                                    const sameGroup = plans.filter(candidate => (Number(candidate.post_price || 0) <= 0) === isFreePlan);
+                                                    const groupIndex = sameGroup.findIndex(candidate => candidate.plan_id === p.plan_id);
+                                                    const isMoving = movingPlanId === p.plan_id;
+                                                    return (
+                                                <div key={p.plan_id} className="group rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#2C4964]/30 hover:shadow-md">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-sm text-gray-800">{p.name}</span>
-                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                                                            <span className="truncate font-bold text-sm text-slate-900">{p.name}</span>
+                                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
                                                                 {p.is_active ? 'Active' : 'Inactive'}
                                                             </span>
                                                         </div>
-                                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description || 'No description'}</p>
+                                                        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">{p.description || 'No description added yet.'}</p>
+                                                        <p className="mt-3 text-xs font-semibold text-[#2C4964]">{p.document_processing_fee_enabled ? `Document charge: ₹${Number(p.post_price || 0).toLocaleString()}` : 'No document charge'}</p>
+                                                    </div>
+                                                    <div className="flex shrink-0 items-center gap-1">
+                                                    <div className="flex flex-col rounded-lg border border-slate-200 bg-white">
+                                                        <button type="button" onClick={() => handleMovePlan(p, 'up')} disabled={isMoving || groupIndex === 0} className="p-1 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30" title="Move card earlier"><IconArrowUp size={14} /></button>
+                                                        <button type="button" onClick={() => handleMovePlan(p, 'down')} disabled={isMoving || groupIndex === sameGroup.length - 1} className="border-t border-slate-100 p-1 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30" title="Move card later"><IconArrowDown size={14} /></button>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -687,12 +727,19 @@ function HomepageSettingsPage() {
                                                             setSelectedPlan(p);
                                                             setIsPlanModalOpen(true);
                                                         }}
-                                                        className={`${getSecondaryButtonClasses()} !p-1.5 text-xs text-gray-600 hover:text-blue-600 border-none shadow-none`}
+                                                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#2C4964] hover:bg-[#2C4964]/10"
                                                         title="Edit Plan Card"
                                                     >
                                                         Edit Card
                                                     </button>
+                                                    <button type="button" onClick={() => handleDeletePlan(p)} disabled={deletingPlanId === p.plan_id} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 disabled:opacity-50" title="Delete unused plan" aria-label={`Delete ${p.name}`}>
+                                                        {deletingPlanId === p.plan_id ? <IconLoader size={15} className="animate-spin" /> : <IconTrash size={15} />}
+                                                    </button>
+                                                    </div>
+                                                    </div>
                                                 </div>
+                                                    );
+                                                })()
                                             ))}
                                         </div>
                                     )}
