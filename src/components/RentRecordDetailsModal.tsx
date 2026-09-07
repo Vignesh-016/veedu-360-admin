@@ -216,6 +216,14 @@ function RentRecordDetailsModal({ isOpen, onClose, recordId, onSuccess }: RentRe
                                                     {renderDetail("Record ID", record.rent_record_id.substring(0, 12) + '...', <IconReceipt size={16} />)}
                                                 </div>
                                                 {record.notes && <div className="mt-3 pt-3 border-t border-gray-100">{renderDetail("Notes", record.notes, <IconNote size={16} />)}</div>}
+                                                {(record as any).total_amount_paise != null && <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    {renderDetail('Plan Commission', `${(record as any).commission_percentage}%`)}
+                                                    {renderDetail('Owner Share', `₹${(Number((record as any).owner_share_paise) / 100).toLocaleString()}`)}
+                                                    {renderDetail('Admin Gross Share', `₹${(Number((record as any).admin_share_paise) / 100).toLocaleString()}`)}
+                                                    {renderDetail('Owner Transfer', (record as any).razorpay_transfer_id ? `₹${(Number((record as any).owner_share_paise) / 100).toLocaleString()}` : 'Pending')}
+                                                    {renderDetail('Transfer Status', (record as any).transfer_status)}
+                                                    {renderDetail('Transfer ID', (record as any).razorpay_transfer_id)}
+                                                </div>}
                                             </div>
 
                                             {/* Payments Section */}

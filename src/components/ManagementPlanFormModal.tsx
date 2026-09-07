@@ -50,7 +50,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
     const isEditing = !!plan;
 
     const [name, setName] = useState(plan?.name || '');
-    const [percentage] = useState<number | string>(plan?.percentage.toString() || '');
+    const [percentage, setPercentage] = useState<number | string>(plan?.percentage.toString() || '');
     const [postPrice, setPostPrice] = useState<number | string>(plan?.post_price?.toString() || '100');
     const [documentProcessingFeeEnabled, setDocumentProcessingFeeEnabled] = useState(plan?.document_processing_fee_enabled ?? false);
     const [featureRows, setFeatureRows] = useState<FeatureRow[]>(() => getFeatureRows(plan?.description || null));
@@ -70,9 +70,11 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         setLoading(true);
         setError(null);
 
-        let numericPercentage = parseFloat(percentage as string);
-        if (isNaN(numericPercentage)) {
-            numericPercentage = 0;
+        const numericPercentage = parseFloat(percentage as string);
+        if (isNaN(numericPercentage) || numericPercentage < 0 || numericPercentage > 100) {
+            setError('Commission percentage must be between 0 and 100.');
+            setLoading(false);
+            return;
         }
         const numericPostPrice = parseFloat(postPrice as string);
         if (documentProcessingFeeEnabled && (isNaN(numericPostPrice) || numericPostPrice <= 0)) {
@@ -194,6 +196,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 )}
                 {renderInput("name", "Card Header Title", "text", name, (e) => setName(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Tenant Placement & Transition", true)}
                 {renderInput("subtitle", "Card Subtitle", "text", subtitle, (e) => setSubtitle(e.target.value), <IconFileText className="h-4 w-4" />, "e.g., Complete support for owners and tenants")}
+                {renderInput("percentage", "Commission Percentage", "number", percentage, (e) => setPercentage(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "e.g., 5", true, undefined, 0, 100, 0.01)}
                 <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer">
                     <input type="checkbox" checked={documentProcessingFeeEnabled} onChange={(event) => setDocumentProcessingFeeEnabled(event.target.checked)} disabled={loading} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2C4964] focus:ring-[#2C4964]" />
                     <span><span className="block text-sm font-medium text-gray-800">Collect a document-processing charge</span><span className="mt-0.5 block text-xs text-gray-500">Only enabled plans display and collect the configured amount.</span></span>

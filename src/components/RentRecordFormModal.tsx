@@ -43,11 +43,16 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [amountPaid, setAmountPaid] = useState<number | string>(record?.amount_paid.toString() || '');
     const [tenantInfo, setTenantInfo] = useState<string | null>(record ? record.tenant_name : null);
     const [landlordInfo, setLandlordInfo] = useState<string | null>(record ? record.landlord_name : null);
+    const [landlordUserId, setLandlordUserId] = useState<string | null>(record?.landlord_user_id || null);
+    const [payoutVerified, setPayoutVerified] = useState<boolean>(isEditing);
     const [initialPropertyDisplay] = useState<string | undefined>(record?.property_address);
 
     const [loading, setLoading] = useState(false);
     const [propertyLoading, setPropertyLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [payoutCheck, setPayoutCheck] = useState<any>(null);
+    const [checkingPayout, setCheckingPayout] = useState(false);
+    const checkOwnerPayout = async () => { setCheckingPayout(true); const { data, error: e } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: '284e4d98-243e-4fdc-b91a-f7494267c2e3' } }); setPayoutCheck(e ? { error: e.message } : data); setCheckingPayout(false); };
 
     const fetchPropertyOccupantDetails = useCallback(async (selectedPropertyId: string) => {
         if (!selectedPropertyId) {
@@ -74,7 +79,10 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 setError(prev => prev ? `${prev}\nProperty owner (landlord) not found.` : "Property owner (landlord) not found.");
                 setLandlordInfo(null);
             } else {
+                setLandlordUserId(propDetails.submitter_info.user_id);
                 setLandlordInfo(propDetails.submitter_info.email || propDetails.submitter_info.name || `ID: ${propDetails.submitter_info.user_id.substring(0, 8)}...`);
+                const { data: payout } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: propDetails.submitter_info.user_id } });
+                setPayoutVerified(Boolean(payout?.payment_eligible && payout?.razorpay_product_status === 'activated'));
             }
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch property details.';
@@ -133,6 +141,9 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 if (updateError) throw updateError;
                 showSuccessNotification("Record Updated", "Rent record updated successfully!");
             } else {
+                if (!landlordUserId) throw new Error('Property owner (landlord) not found.');
+                const { data: payout, error: payoutError } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: landlordUserId } });
+                if (payoutError || !payout?.payment_eligible || payout?.razorpay_product_status !== 'activated') throw new Error("Rent record cannot be created because the owner's payout account is not verified yet.");
                 if (!propertyId || !tenantInfo || !landlordInfo) {
                     throw new Error("Please select a valid property with an assigned tenant and owner.");
                 }
@@ -140,18 +151,21 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                     p_property_id: propertyId, p_due_date: dueDate, p_period_start_date: periodStartDate,
                     p_period_end_date: periodEndDate, p_amount_due: numericAmountDue, p_notes: notes || undefined,
                 };
-                const { data: newRecordId, error: insertError } = await api.createRentRecordAdmin(createParams);
+                const { data: newRecordId, error: insertError } = await (api.supabase as any).functions.invoke('create-rent-record-admin', { body: createParams });
                 if (insertError) throw insertError;
-                if (!newRecordId) throw new Error("Failed to get new record ID after insertion.");
-                showSuccessNotification("Record Added", `Rent record added successfully! ID: ${newRecordId}`);
+                const createdId = newRecordId?.rent_record_id || newRecordId;
+                if (!createdId) throw new Error("Failed to get new record ID after insertion.");
+                showSuccessNotification("Record Added", `Rent record added successfully! ID: ${createdId}`);
             }
             onSuccess();
             onClose();
         } catch (submitError: any) {
-            console.error('Error submitting rent record:', submitError);
             const message = submitError?.message || submitError?.details || 'An unexpected error occurred.';
-            setError(`Failed to save record: ${message}`);
-            showErrorNotification("Error saving record", message);
+            const safeMessage = String(message).toLowerCase().includes('payout account')
+                ? 'Payout account verification is required before creating a rent record.'
+                : message;
+            setError(`Failed to save record: ${safeMessage}`);
+            showErrorNotification("Error saving record", safeMessage);
         } finally {
             setLoading(false);
         }
@@ -236,7 +250,9 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end bg-gray-50">
                 <div className="flex items-center space-x-3">
                     <button type="button" onClick={onClose} className={getSecondaryButtonClasses()} disabled={loading}>Cancel</button>
-                    <button type="submit" className={getPrimaryButtonClasses()} disabled={loading || propertyLoading || (!isEditing && (!tenantInfo || !landlordInfo))}>
+                    {!isEditing && <button type="button" onClick={() => void checkOwnerPayout()} disabled={checkingPayout} className={getSecondaryButtonClasses()}>{checkingPayout ? 'Checking…' : 'Check Owner Payout Status'}</button>}
+                    {payoutCheck && <pre className="mt-2 max-w-full overflow-auto rounded bg-slate-100 p-2 text-xs">{JSON.stringify(payoutCheck, null, 2)}</pre>}
+                    <button type="submit" className={getPrimaryButtonClasses()} disabled={loading || propertyLoading || (!isEditing && (!tenantInfo || !landlordInfo || !payoutVerified))}>
                         {loading ? (<><LoadingSpinner size={16} className="mr-2" />Saving...</>) : (isEditing ? 'Update Record' : 'Add Record')}
                     </button>
                 </div>
