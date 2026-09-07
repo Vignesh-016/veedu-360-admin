@@ -74,7 +74,7 @@ function PropertyFormModalBody({
     // --- Core Property Info ---
     const [propertyType, setPropertyType] = useState<PropertyType>(property?.property_type || 'HOUSE');
     const [listingType, setListingType] = useState<ListingType>(property?.listing_type || 'RENTAL');
-    const [price, setPrice] = useState<number>(property?.price || 0);
+    const [price, setPrice] = useState<number | null>(property?.price ?? null);
     const [advanceAmount, setAdvanceAmount] = useState<number | undefined>(property?.advance_amount ?? undefined);
     const [area, setArea] = useState<number | undefined>(property?.area ?? undefined);
     const [areaUnit, setAreaUnit] = useState<AreaUnit | undefined>(property?.area_unit ?? undefined);
@@ -82,7 +82,7 @@ function PropertyFormModalBody({
     const [locality, setLocality] = useState<string>(property?.locality || '');
     const [city, setCity] = useState<string>(property?.city || '');
     const [address, setAddress] = useState<string>(property?.address || '');
-    const [pincode, setPincode] = useState<number>(property?.pincode ?? 0);
+    const [pincode, setPincode] = useState<number | undefined>(property?.pincode ?? undefined);
     const [youtubeUrl, setYoutubeUrl] = useState<string | undefined>(property?.youtube_url ?? undefined);
     const [latitude, setLatitude] = useState<number | undefined>(property?.latitude ?? undefined);
     const [longitude, setLongitude] = useState<number | undefined>(property?.longitude ?? undefined);
@@ -181,9 +181,9 @@ function PropertyFormModalBody({
         try {
             if (isEditing && property) {
                 const updateParams: UpdatePropertyAdminParams = {
-                    p_property_id: property.property_id, p_property_type: propertyType, p_listing_type: listingType, p_price: price,
+                    p_property_id: property.property_id, p_property_type: propertyType, p_listing_type: listingType, p_price: price ?? 0,
                     p_advance_amount: advanceAmount, p_area: area ?? null as any, p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality,
-                    p_city: city, p_address: address, p_pincode: pincode, p_youtube_url: youtubeUrl, p_latitude: latitude, p_longitude: longitude,
+                    p_city: city, p_address: address, p_pincode: pincode ?? 0, p_youtube_url: youtubeUrl, p_latitude: latitude, p_longitude: longitude,
                     p_year_built: propertyType === 'LAND' ? undefined : parseNullableNumberInput(yearBuilt?.toString() ?? ''), p_nearest_hospital: parseNullableNumberInput(nearestHospital?.toString() ?? ''),
                     p_nearest_busstop: parseNullableNumberInput(nearestBusstop?.toString() ?? ''), p_nearest_gym: parseNullableNumberInput(nearestGym?.toString() ?? ''),
                     p_nearest_park: parseNullableNumberInput(nearestPark?.toString() ?? ''), p_nearest_school: parseNullableNumberInput(nearestSchool?.toString() ?? ''),
@@ -198,8 +198,8 @@ function PropertyFormModalBody({
                 showSuccessNotification("Property Updated", "Property updated successfully!");
             } else {
                 const insertParams: InsertPropertyAdminParams = {
-                    p_property_type: propertyType, p_listing_type: listingType, p_price: price, p_advance_amount: advanceAmount, p_area: area ?? null as any,
-                    p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality, p_city: city, p_address: address, p_pincode: pincode,
+                    p_property_type: propertyType, p_listing_type: listingType, p_price: price ?? 0, p_advance_amount: advanceAmount, p_area: area ?? null as any,
+                    p_area_unit: area ? (areaUnit ?? null as any) : null as any, p_description: description, p_locality: locality, p_city: city, p_address: address, p_pincode: pincode ?? 0,
                     p_details: detailsToSend, p_inventory_details: inventoryDetailsToSend, p_youtube_url: youtubeUrl, p_latitude: latitude,
                     p_longitude: longitude, p_year_built: yearBuilt, p_nearest_hospital: nearestHospital, p_nearest_busstop: nearestBusstop,
                     p_nearest_gym: nearestGym, p_nearest_park: nearestPark, p_nearest_school: nearestSchool,
@@ -309,7 +309,7 @@ function PropertyFormModalBody({
                         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
                             {renderSelectWithIcon("propertyType", "Property Type", propertyType, handlePropertyTypeChange, <IconBuildingCommunity className="h-4 w-4" />, propertyTypeOptions, true)}
                             {renderSelectWithIcon("listingType", "Listing Type", listingType, (e) => setListingType(e.target.value as ListingType), <IconTag className="h-4 w-4" />, listingTypeOptions, true)}
-                            {renderInputWithIcon("price", "Price (INR)", "number", price, (e) => setPrice(parseNumberInput(e.target.value)), <IconCoinRupee className="h-4 w-4" />, "0", 0, "0.01", true)}
+                            {renderInputWithIcon("price", "Price (INR)", "number", price, (e) => setPrice(parseNullableNumberInput(e.target.value) ?? null), <IconCoinRupee className="h-4 w-4" />, "Enter amount", 0, "0.01")}
                             {renderInputWithIcon("advanceAmount", "Advance Amount (INR)", "number", advanceAmount, (e) => setAdvanceAmount(parseNullableNumberInput(e.target.value)), <IconCoinRupee className="h-4 w-4" />, "Optional", 0, "0.01", false)}
                             {renderInputWithIcon("area", "Area", "number", area, (e) => setArea(parseNullableNumberInput(e.target.value)), <IconRuler className="h-4 w-4" />, "Optional", 0, "0.01", false)}
                             {renderSelectWithIcon("areaUnit", "Area Unit", areaUnit || '', (e) => setAreaUnit(e.target.value as AreaUnit || undefined), <IconDimensions className="h-4 w-4" />, areaUnitOptions, false)}
@@ -328,10 +328,10 @@ function PropertyFormModalBody({
                     <fieldset className="border border-gray-200 p-4 rounded-md">
                         <legend className="text-base font-medium text-gray-900 px-2">Location Details</legend>
                         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
-                            {renderInputWithIcon("locality", "Locality / Area Name", "text", locality, (e) => setLocality(e.target.value), <IconMap className="h-4 w-4" />, "e.g., Vannarpettai", 0, undefined, true)}
-                            {renderInputWithIcon("city", "City", "text", city, (e) => setCity(e.target.value), <IconMapPin className="h-4 w-4" />, "e.g., Tirunelveli", 0, undefined, true)}
-                            {renderInputWithIcon("pincode", "Pincode", "number", pincode, (e) => setPincode(parseNullableNumberInput(e.target.value) || 0), <IconMapPin className="h-4 w-4" />, "e.g., 627003", 100000, undefined, true)}
-                            {renderInputWithIcon("address", "Full Address", "textarea", address, (e) => setAddress(e.target.value), <IconLocation className="h-4 w-4" />, "Enter complete address", undefined, undefined, true, 3)}
+                            {renderInputWithIcon("locality", "Locality / Area Name", "text", locality, (e) => setLocality(e.target.value), <IconMap className="h-4 w-4" />, "e.g., Vannarpettai")}
+                            {renderInputWithIcon("city", "City", "text", city, (e) => setCity(e.target.value), <IconMapPin className="h-4 w-4" />, "e.g., Tirunelveli")}
+                            {renderInputWithIcon("pincode", "Pincode", "number", pincode, (e) => setPincode(parseNullableNumberInput(e.target.value)), <IconMapPin className="h-4 w-4" />, "e.g., 627003", 100000)}
+                            {renderInputWithIcon("address", "Full Address", "textarea", address, (e) => setAddress(e.target.value), <IconLocation className="h-4 w-4" />, "Enter complete address", undefined, undefined, false, 3)}
                         </div>
                         <div className="mt-4">
                             <label className="text-sm font-medium text-gray-700 mb-2 flex items-center"><IconMapSearch size={16} className='mr-2 text-gray-400' /> Coordinates (Click map to set)</label>
@@ -362,7 +362,7 @@ function PropertyFormModalBody({
                     </div></fieldset>)}
                     {isLandDetails(detailsState) && (<fieldset className="border border-gray-200 p-4 rounded-md"><legend className="text-base font-medium text-gray-900 px-2">Land Details</legend><div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-6">
                         {renderInputWithIcon("landName", "Land Title/Name", "text", detailsState.land_name, (e) => updateDetails('land_name', e.target.value), <IconMap className="h-4 w-4" />, "e.g., Green Acres Plot", undefined, undefined, true)}
-                        {renderSelectWithIcon("landType", "Land Type", detailsState.land_type ?? 'RESIDENTIAL', (e) => updateDetails('land_type', e.target.value as LandType), <IconMap className="h-4 w-4" />, landTypeOptions, true)}
+                        {renderSelectWithIcon("landType", "Land Type", detailsState.land_type ?? 'RESIDENTIAL', (e) => updateDetails('land_type', e.target.value as LandType), <IconMap className="h-4 w-4" />, landTypeOptions)}
                         {renderInputWithIcon("plotDimensions", "Plot Dimensions", "text", detailsState.plot_dimensions, (e) => updateDetails('plot_dimensions', e.target.value), <IconDimensions className="h-4 w-4" />, "e.g., 50x100 ft")}
                         {renderInputWithIcon("roadAccessWidth", "Road Access Width (ft)", "number", detailsState.road_access_width_ft, (e) => updateDetails('road_access_width_ft', Math.max(0, parseNumberInput(e.target.value))), <IconRoad className="h-4 w-4" />, "e.g., 30", 0)}
                         {renderSelectWithIcon("isCornerPlotLand", "Corner Plot (Land)", detailsState.is_corner_plot ?? false, (e) => updateDetails('is_corner_plot', e.target.value === 'true'), <IconCheckbox className="h-4 w-4" />, booleanOptions)}
@@ -370,7 +370,7 @@ function PropertyFormModalBody({
                     </div></fieldset>)}
                     {isBuildingDetails(detailsState) && (<fieldset className="border border-gray-200 p-4 rounded-md"><legend className="text-base font-medium text-gray-900 px-2">Building Details</legend><div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
                         {renderInputWithIcon("buildingName", "Building Title/Name", "text", detailsState.building_name, (e) => updateDetails('building_name', e.target.value), <IconBuilding className="h-4 w-4" />, "e.g., Corporate Tower", undefined, undefined, true)}
-                        {renderSelectWithIcon("buildingType", "Building Type", detailsState.building_type ?? 'OFFICE', (e) => updateDetails('building_type', e.target.value as BuildingType), <IconBuildingCommunity className="h-4 w-4" />, buildingTypeOptions, true)}
+                        {renderSelectWithIcon("buildingType", "Building Type", detailsState.building_type ?? 'OFFICE', (e) => updateDetails('building_type', e.target.value as BuildingType), <IconBuildingCommunity className="h-4 w-4" />, buildingTypeOptions)}
                         {renderInputWithIcon("totalFloorsBuilding", "Total Floors", "number", detailsState.total_floors, (e) => updateDetails('total_floors', Math.max(1, parseNumberInput(e.target.value))), <IconBuildingWarehouse className="h-4 w-4" />, "e.g., 15", 1)}
                         {renderInputWithIcon("numUnits", "Total Units", "number", detailsState.num_units, (e) => updateDetails('num_units', Math.max(1, parseNumberInput(e.target.value))), <IconLayoutGrid className="h-4 w-4" />, "e.g., 50", 1)}
                         {renderInputWithIcon("availableUnits", "Available Units", "number", detailsState.available_units, (e) => updateDetails('available_units', Math.max(0, parseNumberInput(e.target.value))), <IconHomeCheck className="h-4 w-4" />, "e.g., 10", 0)}
