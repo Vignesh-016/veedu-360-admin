@@ -52,6 +52,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
     const [name, setName] = useState(plan?.name || '');
     const [percentage, setPercentage] = useState<number | string>(plan?.percentage.toString() || '');
     const [postPrice, setPostPrice] = useState<number | string>(plan?.post_price?.toString() || '100');
+    const [strikePrice, setStrikePrice] = useState<number | string>(String((plan as any)?.strike_price ?? 0));
     const [documentProcessingFeeEnabled, setDocumentProcessingFeeEnabled] = useState(plan?.document_processing_fee_enabled ?? false);
     const [featureRows, setFeatureRows] = useState<FeatureRow[]>(() => getFeatureRows(plan?.description || null));
     const [subtitle, setSubtitle] = useState(
@@ -61,6 +62,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
         (plan?.description || '').split('\n').find(line => /^button\s*:/i.test(line.trim()))?.replace(/^button\s*:/i, '').trim() || 'Learn More & Select'
     );
     const [isActive, setIsActive] = useState(plan?.is_active ?? true);
+    const [requiresPayoutAccount, setRequiresPayoutAccount] = useState(Boolean((plan as any)?.requires_payout_account));
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -99,12 +101,13 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
 
         try {
             if (isEditing && plan) {
-                const updateParams: UpdateManagementPlanAdminParams = {
+                const updateParams: UpdateManagementPlanAdminParams & Record<string, unknown> = {
                     p_plan_id: plan.plan_id,
                     p_name: name,
                     p_percentage: numericPercentage,
                     p_description: contentDescription || undefined,
-                    p_is_active: isActive
+                    p_is_active: isActive,
+                    p_requires_payout_account: requiresPayoutAccount
                 };
                 const { error: updateError } = await api.updateManagementPlanAdmin(updateParams);
                 if (updateError) throw updateError;
@@ -112,13 +115,16 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 if (priceError) throw priceError;
                 const { error: documentFeeError } = await api.updateManagementPlanDocumentProcessingAdmin(plan.plan_id, documentProcessingFeeEnabled);
                 if (documentFeeError) throw documentFeeError;
+                const { error: strikeError } = await (api.supabase as any).rpc('update_management_plan_strike_price_admin', { p_plan_id: plan.plan_id, p_strike_price: Number(strikePrice) || 0 });
+                if (strikeError) throw strikeError;
                 showSuccessNotification("Plan Updated", "Management plan updated successfully!");
             } else {
-                const createParams: CreateManagementPlanAdminParams = {
+                const createParams: CreateManagementPlanAdminParams & Record<string, unknown> = {
                     p_name: name,
                     p_percentage: numericPercentage,
                     p_description: contentDescription || undefined,
-                    p_is_active: isActive
+                    p_is_active: isActive,
+                    p_requires_payout_account: requiresPayoutAccount
                 };
                 const { data: newPlanId, error: insertError } = await api.createManagementPlanAdmin(createParams);
                 if (insertError) throw insertError;
@@ -127,6 +133,8 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 if (priceError) throw priceError;
                 const { error: documentFeeError } = await api.updateManagementPlanDocumentProcessingAdmin(newPlanId, documentProcessingFeeEnabled);
                 if (documentFeeError) throw documentFeeError;
+                const { error: strikeError } = await (api.supabase as any).rpc('update_management_plan_strike_price_admin', { p_plan_id: newPlanId, p_strike_price: Number(strikePrice) || 0 });
+                if (strikeError) throw strikeError;
                 showSuccessNotification("Plan Added", `Management plan added successfully! ID: ${newPlanId}`);
             }
 
@@ -202,6 +210,7 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                     <span><span className="block text-sm font-medium text-gray-800">Collect a document-processing charge</span><span className="mt-0.5 block text-xs text-gray-500">Only enabled plans display and collect the configured amount.</span></span>
                 </label>
                 {renderInput("postPrice", "Document Processing Price (₹)", "number", postPrice, (e) => setPostPrice(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "100", documentProcessingFeeEnabled, undefined, 0, undefined, 0.01)}
+                {renderInput("strikePrice", "Strike Price (₹)", "number", strikePrice, (e) => setStrikePrice(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "999", false, undefined, 0, undefined, 0.01)}
                 <div>
                     <div className="flex items-center justify-between">
                         <label className="block text-sm font-medium text-gray-700">
@@ -293,6 +302,10 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                     >
                         <span className={`${isActive ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
                     </Switch>
+                </div>
+                <div className="flex items-center justify-between">
+                    <div><span className="text-sm font-medium text-gray-700">Requires Payout Account</span><p className="text-xs text-gray-500">Owners using this plan must complete payout verification before rent collection.</p></div>
+                    <Switch checked={requiresPayoutAccount} onChange={setRequiresPayoutAccount} disabled={loading} className={`${requiresPayoutAccount ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full`}><span className={`${requiresPayoutAccount ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} /></Switch>
                 </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end bg-gray-50">

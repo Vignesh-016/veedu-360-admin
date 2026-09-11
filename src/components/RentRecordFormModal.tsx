@@ -5,7 +5,7 @@ import {
     IconCurrencyRupee, IconNote, IconAlertCircle, IconFileCheck,
     IconListCheck
 } from '@tabler/icons-react';
-import { RentRecordAdminSummary, RentStatus, AdminPropertySummary, ListingType, UpdateRentRecordAdminParams, CreateRentRecordAdminParams } from '../lib/types';
+import { RentRecordAdminSummary, RentStatus, AdminPropertySummary, ListingType, UpdateRentRecordAdminParams } from '../lib/types';
 import api from '../lib/supabaseClient';
 import { useNotification } from './NotificationProvider';
 import LoadingSpinner from './LoadingSpinner';
@@ -41,10 +41,18 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [notes, setNotes] = useState<string | undefined>(record?.notes ?? undefined);
     const [status, setStatus] = useState<RentStatus | undefined>(record?.status);
     const [amountPaid, setAmountPaid] = useState<number | string>(record?.amount_paid.toString() || '');
+    const [overrideOwnerPayout, setOverrideOwnerPayout] = useState(false);
+    const [ownerPayoutAmount, setOwnerPayoutAmount] = useState<number | string>('');
+    const [overrideReason, setOverrideReason] = useState('');
+    const [planPercentage, setPlanPercentage] = useState<number | null>(null);
+    const totalPreview = Math.round((Number(amountDue) || 0) * 100);
+    const defaultAdminPreview = Math.round(totalPreview * (planPercentage ?? 0) / 100);
+    const defaultOwnerPreview = totalPreview - defaultAdminPreview;
+    const finalOwnerPreview = overrideOwnerPayout ? Math.round((Number(ownerPayoutAmount) || 0) * 100) : defaultOwnerPreview;
+    const finalAdminPreview = totalPreview - finalOwnerPreview;
     const [tenantInfo, setTenantInfo] = useState<string | null>(record ? record.tenant_name : null);
     const [landlordInfo, setLandlordInfo] = useState<string | null>(record ? record.landlord_name : null);
     const [landlordUserId, setLandlordUserId] = useState<string | null>(record?.landlord_user_id || null);
-    const [payoutVerified, setPayoutVerified] = useState<boolean>(isEditing);
     const [initialPropertyDisplay] = useState<string | undefined>(record?.property_address);
 
     const [loading, setLoading] = useState(false);
@@ -66,6 +74,7 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             const { data: propDetails, error: propError } = await api.getPropertyDetailsAdmin(selectedPropertyId);
             if (propError) throw propError;
             if (!propDetails) throw new Error("Property details not found.");
+            setPlanPercentage((propDetails as any).management_plan?.percentage ?? (propDetails as any).management_plan_info?.percentage ?? null);
 
             if (!propDetails.tenant_info?.user_id) {
                 setError("Selected property is not occupied by a tenant, or tenant details are missing.");
@@ -81,8 +90,6 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             } else {
                 setLandlordUserId(propDetails.submitter_info.user_id);
                 setLandlordInfo(propDetails.submitter_info.email || propDetails.submitter_info.name || `ID: ${propDetails.submitter_info.user_id.substring(0, 8)}...`);
-                const { data: payout } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: propDetails.submitter_info.user_id } });
-                setPayoutVerified(Boolean(payout?.payment_eligible && payout?.razorpay_product_status === 'activated'));
             }
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch property details.';
@@ -124,6 +131,11 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             setLoading(false);
             return;
         }
+        if (!isEditing && overrideOwnerPayout && (Number(ownerPayoutAmount) < 0 || Number(ownerPayoutAmount) > numericAmountDue || !overrideReason.trim())) {
+            setError('Owner payout must be within the rent amount and include a reason.');
+            setLoading(false);
+            return;
+        }
 
         try {
             if (isEditing && record) {
@@ -142,14 +154,14 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 showSuccessNotification("Record Updated", "Rent record updated successfully!");
             } else {
                 if (!landlordUserId) throw new Error('Property owner (landlord) not found.');
-                const { data: payout, error: payoutError } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: landlordUserId } });
-                if (payoutError || !payout?.payment_eligible || payout?.razorpay_product_status !== 'activated') throw new Error("Rent record cannot be created because the owner's payout account is not verified yet.");
                 if (!propertyId || !tenantInfo || !landlordInfo) {
                     throw new Error("Please select a valid property with an assigned tenant and owner.");
                 }
-                const createParams: CreateRentRecordAdminParams = {
+                const createParams: any = {
                     p_property_id: propertyId, p_due_date: dueDate, p_period_start_date: periodStartDate,
                     p_period_end_date: periodEndDate, p_amount_due: numericAmountDue, p_notes: notes || undefined,
+                    p_owner_payout_override: overrideOwnerPayout ? Number(ownerPayoutAmount) : undefined,
+                    p_override_reason: overrideOwnerPayout ? overrideReason : undefined,
                 };
                 const { data: newRecordId, error: insertError } = await (api.supabase as any).functions.invoke('create-rent-record-admin', { body: createParams });
                 if (insertError) throw insertError;
@@ -245,14 +257,15 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                     {renderInput("amountPaid", "Amount Paid (INR)", "number", amountPaid, (e) => setAmountPaid(e.target.value), <IconFileCheck className="h-4 w-4" />, "e.g., 15000.00", isEditing, undefined, !isEditing)}
                     {renderSelect("status", "Status", status, (e) => setStatus(e.target.value as RentStatus), <IconListCheck className="h-4 w-4" />, rentStatusOptions, isEditing, !isEditing)}
                 </div>
+                {!isEditing && <div className="rounded border border-gray-200 bg-gray-50 p-3 space-y-3"><div className="text-sm">Plan Commission: <strong>{planPercentage ?? '—'}%</strong> <span className="text-xs text-gray-500">(read-only)</span></div><div className="text-sm">Default Owner Payout: <strong>₹{(defaultOwnerPreview / 100).toLocaleString()}</strong> · Default Admin Share: <strong>₹{(defaultAdminPreview / 100).toLocaleString()}</strong></div><label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={overrideOwnerPayout} onChange={e => setOverrideOwnerPayout(e.target.checked)} /> Adjust Owner Payout</label>{overrideOwnerPayout && <><input className={getBaseInputClasses()} type="number" min="0" max={Number(amountDue) || undefined} value={ownerPayoutAmount} onChange={e => setOwnerPayoutAmount(e.target.value)} placeholder="Owner payout amount (INR)" required /><input className={getBaseInputClasses()} value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="Reason for adjustment" required /><p className="text-sm">Final Owner Payout: <strong>₹{(finalOwnerPreview / 100).toLocaleString()}</strong> · Final Admin Share: <strong>₹{(finalAdminPreview / 100).toLocaleString()}</strong></p></>}</div>}
                 {renderInput("notes", "Notes", "textarea", notes, (e) => setNotes(e.target.value || undefined), <IconNote className="h-4 w-4" />, "Optional notes...", false, 3)}
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end bg-gray-50">
                 <div className="flex items-center space-x-3">
                     <button type="button" onClick={onClose} className={getSecondaryButtonClasses()} disabled={loading}>Cancel</button>
                     {!isEditing && <button type="button" onClick={() => void checkOwnerPayout()} disabled={checkingPayout} className={getSecondaryButtonClasses()}>{checkingPayout ? 'Checking…' : 'Check Owner Payout Status'}</button>}
-                    {payoutCheck && <pre className="mt-2 max-w-full overflow-auto rounded bg-slate-100 p-2 text-xs">{JSON.stringify(payoutCheck, null, 2)}</pre>}
-                    <button type="submit" className={getPrimaryButtonClasses()} disabled={loading || propertyLoading || (!isEditing && (!tenantInfo || !landlordInfo || !payoutVerified))}>
+                    {payoutCheck && <div className="mt-2 rounded border p-3 text-sm"><strong>{payoutCheck.payment_eligible && payoutCheck.razorpay_product_status === 'activated' ? '✓ Owner Payout Verified' : payoutCheck.razorpay_product_status === 'needs_clarification' ? 'Owner Action Required' : 'Owner Payout Verification Pending'}</strong><p className="text-xs text-gray-600">{payoutCheck.payment_eligible ? 'Ready to receive rent payouts.' : 'Razorpay verification is still in progress.'}</p></div>}
+                    <button type="submit" className={getPrimaryButtonClasses()} disabled={loading || propertyLoading || (!isEditing && (!tenantInfo || !landlordInfo))}>
                         {loading ? (<><LoadingSpinner size={16} className="mr-2" />Saving...</>) : (isEditing ? 'Update Record' : 'Add Record')}
                     </button>
                 </div>
