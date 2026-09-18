@@ -63,9 +63,12 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
     );
     const [isActive, setIsActive] = useState(plan?.is_active ?? true);
     const [requiresPayoutAccount, setRequiresPayoutAccount] = useState(Boolean((plan as any)?.requires_payout_account));
+    const [requiresPincode, setRequiresPincode] = useState(Boolean((plan as any)?.requires_pincode));
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -117,6 +120,8 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 if (documentFeeError) throw documentFeeError;
                 const { error: strikeError } = await (api.supabase as any).rpc('update_management_plan_strike_price_admin', { p_plan_id: plan.plan_id, p_strike_price: Number(strikePrice) || 0 });
                 if (strikeError) throw strikeError;
+                const { error: restrictionError } = await (api.supabase as any).rpc('update_management_plan_pincode_restriction_admin', { p_plan_id: plan.plan_id, p_requires_pincode: requiresPincode });
+                if (restrictionError) throw restrictionError;
                 showSuccessNotification("Plan Updated", "Management plan updated successfully!");
             } else {
                 const createParams: CreateManagementPlanAdminParams & Record<string, unknown> = {
@@ -135,6 +140,8 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                 if (documentFeeError) throw documentFeeError;
                 const { error: strikeError } = await (api.supabase as any).rpc('update_management_plan_strike_price_admin', { p_plan_id: newPlanId, p_strike_price: Number(strikePrice) || 0 });
                 if (strikeError) throw strikeError;
+                const { error: restrictionError } = await (api.supabase as any).rpc('update_management_plan_pincode_restriction_admin', { p_plan_id: newPlanId, p_requires_pincode: requiresPincode });
+                if (restrictionError) throw restrictionError;
                 showSuccessNotification("Plan Added", `Management plan added successfully! ID: ${newPlanId}`);
             }
 
@@ -302,6 +309,10 @@ function ManagementPlanFormBody({ plan, onClose, onSuccess }: ManagementPlanForm
                     >
                         <span className={`${isActive ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
                     </Switch>
+                </div>
+                <div className="flex items-center justify-between">
+                    <div><span className="text-sm font-medium text-gray-700">Restrict by Pincode</span><p className="text-xs text-gray-500">Only properties whose pincode is listed below can use this plan.</p></div>
+                    <Switch checked={requiresPincode} onChange={setRequiresPincode} disabled={loading} className={`${requiresPincode ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full`}><span className={`${requiresPincode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} /></Switch>
                 </div>
                 <div className="flex items-center justify-between">
                     <div><span className="text-sm font-medium text-gray-700">Requires Payout Account</span><p className="text-xs text-gray-500">Owners using this plan must complete payout verification before rent collection.</p></div>

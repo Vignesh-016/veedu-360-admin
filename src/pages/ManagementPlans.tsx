@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { IconEdit, IconPlus, IconLoader, IconCertificate, IconSettings, IconCheck, IconX, IconPercentage, IconBriefcase, IconExternalLink } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconLoader, IconCertificate, IconSettings, IconCheck, IconX, IconPercentage, IconBriefcase, IconExternalLink, IconMapPin, IconUpload } from '@tabler/icons-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ManagementPlanFormModal from '../components/ManagementPlanFormModal';
 import api from '../lib/supabaseClient';
@@ -16,6 +16,10 @@ function ManagementPlansPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<ManagementPlanInfo | null>(null);
     const [updatingPlanId, setUpdatingPlanId] = useState<string | null>(null);
+    const [accessRequests, setAccessRequests] = useState<Array<{ request_id: string; requester_user_id: string; pincode: number; requested_plan_ids: string[]; status: string; admin_notes: string | null; property_details: Record<string, unknown>; owner_details: Record<string, unknown>; created_at: string }>>([]);
+    const [servicePincodes, setServicePincodes] = useState<number[]>([]);
+    const [newPincode, setNewPincode] = useState('');
+    const [pincodeSaving, setPincodeSaving] = useState(false);
     const { showSuccessNotification, showErrorNotification } = useNotification();
 
     const fetchPlans = useCallback(async () => {
@@ -26,6 +30,12 @@ function ManagementPlansPage() {
             if (fetchError) throw fetchError;
             const sortedPlans = (data || []).sort((a, b) => a.name.localeCompare(b.name));
             setPlans(sortedPlans);
+            const { data: matrix, error: matrixError } = await (api.supabase as any).rpc('list_management_pincode_matrix_admin');
+            if (matrixError) throw matrixError;
+            setServicePincodes(Array.from(new Set((matrix || []).map((row: { pincode: number }) => row.pincode))));
+            const { data: requests, error: requestsError } = await (api.supabase as any).rpc('list_management_plan_access_requests_admin');
+            if (requestsError) throw requestsError;
+            setAccessRequests(requests || []);
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch management plans';
             setError(errMsg);
@@ -35,6 +45,26 @@ function ManagementPlansPage() {
             setLoading(false);
         }
     }, [showErrorNotification]);
+
+    const addPincode = async () => {
+        const pincode = Number(newPincode);
+        if (!Number.isInteger(pincode) || pincode < 100000 || pincode > 999999) { showErrorNotification('Invalid Pincode', 'Enter a valid six-digit pincode.'); return; }
+        setPincodeSaving(true);
+        try { const { error } = await (api.supabase as any).rpc('bulk_add_management_service_pincodes_admin', { p_pincodes: [pincode] }); if (error) throw error; setNewPincode(''); await fetchPlans(); showSuccessNotification('Pincode Added', `${pincode} is ready for plan restrictions.`); }
+        catch (err) { showErrorNotification('Could Not Add Pincode', err instanceof Error ? err.message : 'Failed to add pincode.'); } finally { setPincodeSaving(false); }
+    };
+
+    const uploadPincodes = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]; if (!file) return;
+        const values = Array.from(new Set((await file.text()).match(/\b\d{6}\b/g) || [])).map(Number);
+        if (!values.length) { showErrorNotification('No Pincodes Found', 'Upload a CSV or TXT file containing six-digit pincodes.'); return; }
+        setPincodeSaving(true);
+        try { const { data, error } = await (api.supabase as any).rpc('bulk_add_management_service_pincodes_admin', { p_pincodes: values }); if (error) throw error; await fetchPlans(); showSuccessNotification('Bulk Upload Complete', `${data || 0} new pincodes were added.`); }
+        catch (err) { showErrorNotification('Bulk Upload Failed', err instanceof Error ? err.message : 'Could not upload pincodes.'); } finally { setPincodeSaving(false); event.target.value = ''; }
+    };
+
+
+
 
     useEffect(() => {
         fetchPlans();
@@ -284,6 +314,17 @@ function ManagementPlansPage() {
                                 </table>
                             )}
                         </div>
+                    </div>
+
+                    <div className="mt-8 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                        <div className="border-b border-gray-100 bg-gray-50/30 p-6"><h2 className="flex items-center text-lg font-medium text-gray-800"><IconMapPin size={20} className="mr-2 text-gray-400" /> Pincode Plan Restrictions</h2><p className="mt-1 text-xs text-gray-400">Add pincodes once, then turn plan access on or off for each location.</p></div>
+                        <div className="flex flex-col gap-3 border-b border-gray-100 p-6 sm:flex-row sm:items-end"><div><label className="block text-sm font-medium text-gray-700" htmlFor="service-pincode">Add Pincode</label><input id="service-pincode" value={newPincode} onChange={event => setNewPincode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="627001" className="mt-1 rounded-md border-gray-300 shadow-sm" /></div><button onClick={addPincode} disabled={pincodeSaving} className={`${getPrimaryButtonClasses()} whitespace-nowrap`}>Add Pincode</button><label className={`${getSecondaryButtonClasses()} inline-flex cursor-pointer items-center whitespace-nowrap`}><IconUpload size={16} className="mr-2" /> Bulk Upload<input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={uploadPincodes} disabled={pincodeSaving} className="hidden" /></label></div>
+                        <div className="flex flex-wrap gap-2 border-t border-gray-100 p-6">{servicePincodes.map(pincode => <span key={pincode} className="rounded-full bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">{pincode}</span>)}{servicePincodes.length === 0 && <p className="text-sm text-gray-400">No pincodes configured.</p>}</div>
+                    </div>
+
+                    <div className="mt-8 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                        <div className="border-b border-gray-100 bg-gray-50/30 p-6"><h2 className="flex items-center text-lg font-medium text-gray-800"><IconSettings size={20} className="mr-2 text-gray-400" /> Paid Plan Access Requests</h2><p className="mt-1 text-xs text-gray-400">Review requests from owners outside the configured pincode coverage.</p></div>
+                        <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-100"><thead className="bg-gray-50/50"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Owner Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Property Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Requested Plans</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th></tr></thead><tbody className="divide-y divide-gray-100">{accessRequests.map(request => { const owner = request.owner_details || {}; const property = request.property_details || {}; return <tr key={request.request_id}><td className="px-6 py-4 align-top text-sm text-gray-700"><div className="font-semibold text-gray-900">{String(owner.full_name || 'Unnamed owner')}</div><div className="mt-1 text-xs text-gray-600">{String(owner.email || 'No email')}</div><div className="text-xs text-gray-600">{String(owner.phone || 'No phone')}</div><div className="mt-1 text-xs text-gray-500">{[owner.address_line1, owner.address_line2, owner.city, owner.state, owner.pincode].filter(Boolean).map(String).join(', ') || 'Address not available'}</div></td><td className="max-w-sm px-6 py-4 align-top text-xs text-gray-600"><div className="font-semibold text-gray-800">{String(property.property_name || property.title || 'Property listing')}</div><div>{[property.property_type, property.listing_type, property.city, property.locality, property.pincode].filter(Boolean).map(String).join(' · ')}</div><div className="mt-1">{property.address ? String(property.address) : `Pincode: ${request.pincode}`}</div><div className="mt-1">{property.price ? `Price: ${String(property.price)}` : ''}{property.area ? ` · Area: ${String(property.area)}` : ''}</div></td><td className="px-6 py-4 align-top text-sm text-gray-600">{request.requested_plan_ids.map(id => plans.find(plan => plan.plan_id === id)?.name || id.slice(0, 8)).join(', ')}</td><td className="px-6 py-4 align-top text-sm text-gray-500">{new Date(request.created_at).toLocaleDateString()}</td><td className="px-6 py-4 align-top text-sm"><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Notification Received</span></td></tr>; })}{accessRequests.length === 0 && <tr><td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-400">No paid-plan access requests.</td></tr>}</tbody></table></div>
                     </div>
                 </div>
 
