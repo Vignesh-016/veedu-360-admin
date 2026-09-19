@@ -136,6 +136,16 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             setLoading(false);
             return;
         }
+        if (periodEndDate < periodStartDate) {
+            setError('Period End Date cannot be before Period Start Date.');
+            setLoading(false);
+            return;
+        }
+        if (dueDate < periodStartDate) {
+            setError('Due Date cannot be before Period Start Date.');
+            setLoading(false);
+            return;
+        }
 
         try {
             if (isEditing && record) {
@@ -164,7 +174,26 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                     p_override_reason: overrideOwnerPayout ? overrideReason : undefined,
                 };
                 const { data: newRecordId, error: insertError } = await (api.supabase as any).functions.invoke('create-rent-record-admin', { body: createParams });
-                if (insertError) throw insertError;
+                if (insertError) {
+                    // FunctionsHttpError.message only says "non-2xx status code".
+                    // Read the edge function response body so the form shows
+                    // the actionable database/business-rule message instead.
+                    let serverMessage = '';
+                    try {
+                        const response = (insertError as any).context;
+                        const payload = response?.json ? await response.json() : null;
+                        serverMessage = payload?.error || payload?.message || payload?.details || '';
+                    } catch {
+                        // Keep the original error below when the response is
+                        // not JSON or has already been consumed.
+                    }
+                    throw new Error(serverMessage || insertError.message || 'The server rejected this rent record.');
+                }
+                // The edge function can return HTTP 2xx with a JSON error
+                // payload. Treat that as a failure and show its exact message.
+                if (newRecordId?.success === false || newRecordId?.error) {
+                    throw new Error(newRecordId.error || newRecordId.message || 'The server rejected this rent record.');
+                }
                 const createdId = newRecordId?.rent_record_id || newRecordId;
                 if (!createdId) throw new Error("Failed to get new record ID after insertion.");
                 showSuccessNotification("Record Added", `Rent record added successfully! ID: ${createdId}`);
@@ -173,9 +202,12 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             onClose();
         } catch (submitError: any) {
             const message = submitError?.message || submitError?.details || 'An unexpected error occurred.';
-            const safeMessage = String(message).toLowerCase().includes('payout account')
+            const rawMessage = String(message);
+            const safeMessage = rawMessage.toLowerCase().includes('rent_records_property_id_due_date_key')
+                ? `A rent record already exists for this property with due date ${dueDate}. The September period ending ${periodEndDate} is already represented by that October due record. Open the existing rent record from the Rent Records list and edit it, or choose a different due date.`
+                : rawMessage.toLowerCase().includes('payout account')
                 ? 'Payout account verification is required before creating a rent record.'
-                : message;
+                : rawMessage;
             setError(`Failed to save record: ${safeMessage}`);
             showErrorNotification("Error saving record", safeMessage);
         } finally {
@@ -239,14 +271,15 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                         required={!isEditing}
                         initialDisplayValue={isEditing ? initialPropertyDisplay : undefined}
                     />
-                    <div className="flex items-center pt-6">
-                        {propertyLoading && <LoadingSpinner size={16} className="mr-2" />}
-                        {!propertyLoading && tenantInfo && <span className="text-sm text-green-700 flex items-center"><IconUser size={16} className='mr-1' /> Tenant: {tenantInfo}</span>}
-                        {!propertyLoading && landlordInfo && <span className="text-sm text-blue-700 ml-4 flex items-center"><IconUser size={16} className='mr-1' /> Landlord: {landlordInfo}</span>}
+                    <div className="flex min-w-0 items-center gap-4 pt-6">
+                        {propertyLoading && <LoadingSpinner size={16} className="mr-2 shrink-0" />}
+                        {!propertyLoading && tenantInfo && <span className="flex min-w-0 items-center truncate text-sm text-green-700"><IconUser size={16} className="mr-1 shrink-0" /> <span className="truncate">Tenant: {tenantInfo}</span></span>}
+                        {!propertyLoading && landlordInfo && <span className="flex min-w-0 items-center truncate text-sm text-blue-700"><IconUser size={16} className="mr-1 shrink-0" /> <span className="truncate">Landlord: {landlordInfo}</span></span>}
                         {!propertyLoading && !tenantInfo && propertyId && !error && <span className="text-sm text-yellow-600">No Tenant Found.</span>}
                         {!propertyLoading && !landlordInfo && propertyId && !error && <span className="text-sm text-yellow-600 ml-2">No Landlord Found.</span>}
                     </div>
                 </div>
+                <p className="text-xs leading-5 text-gray-500">For one property, create one record per due date. The due date must be on or after the period start, and the period end must be on or after the period start. The same dates can be used for a different property.</p>
                 <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-6">
                     {renderInput("dueDate", "Due Date", "date", dueDate, (e) => setDueDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
                     {renderInput("periodStartDate", "Period Start Date", "date", periodStartDate, (e) => setPeriodStartDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}

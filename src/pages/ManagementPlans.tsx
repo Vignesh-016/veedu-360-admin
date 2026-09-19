@@ -35,7 +35,28 @@ function ManagementPlansPage() {
             setServicePincodes(Array.from(new Set((matrix || []).map((row: { pincode: number }) => row.pincode))));
             const { data: requests, error: requestsError } = await (api.supabase as any).rpc('list_management_plan_access_requests_admin');
             if (requestsError) throw requestsError;
-            setAccessRequests(requests || []);
+            // The access-request RPC may return an incomplete owner_details
+            // object. Hydrate the owner from the canonical customer record so
+            // the admin table never falls back to placeholder values when the
+            // request itself has a valid requester_user_id.
+            const hydratedRequests = await Promise.all((requests || []).map(async (request: typeof accessRequests[number]) => {
+                const owner = request.owner_details || {};
+                if (owner.full_name || owner.name || owner.email || owner.phone) return request;
+
+                const { data: customer } = await api.getCustomerFullDetails(request.requester_user_id);
+                if (!customer) return request;
+
+                return {
+                    ...request,
+                    owner_details: {
+                        ...owner,
+                        full_name: customer.full_name,
+                        email: customer.email,
+                        phone: customer.phone,
+                    },
+                };
+            }));
+            setAccessRequests(hydratedRequests);
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch management plans';
             setError(errMsg);
@@ -324,7 +345,7 @@ function ManagementPlansPage() {
 
                     <div className="mt-8 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
                         <div className="border-b border-gray-100 bg-gray-50/30 p-6"><h2 className="flex items-center text-lg font-medium text-gray-800"><IconSettings size={20} className="mr-2 text-gray-400" /> Paid Plan Access Requests</h2><p className="mt-1 text-xs text-gray-400">Review requests from owners outside the configured pincode coverage.</p></div>
-                        <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-100"><thead className="bg-gray-50/50"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Owner Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Property Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Requested Plans</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th></tr></thead><tbody className="divide-y divide-gray-100">{accessRequests.map(request => { const owner = request.owner_details || {}; const property = request.property_details || {}; return <tr key={request.request_id}><td className="px-6 py-4 align-top text-sm text-gray-700"><div className="font-semibold text-gray-900">{String(owner.full_name || 'Unnamed owner')}</div><div className="mt-1 text-xs text-gray-600">{String(owner.email || 'No email')}</div><div className="text-xs text-gray-600">{String(owner.phone || 'No phone')}</div><div className="mt-1 text-xs text-gray-500">{[owner.address_line1, owner.address_line2, owner.city, owner.state, owner.pincode].filter(Boolean).map(String).join(', ') || 'Address not available'}</div></td><td className="max-w-sm px-6 py-4 align-top text-xs text-gray-600"><div className="font-semibold text-gray-800">{String(property.property_name || property.title || 'Property listing')}</div><div>{[property.property_type, property.listing_type, property.city, property.locality, property.pincode].filter(Boolean).map(String).join(' · ')}</div><div className="mt-1">{property.address ? String(property.address) : `Pincode: ${request.pincode}`}</div><div className="mt-1">{property.price ? `Price: ${String(property.price)}` : ''}{property.area ? ` · Area: ${String(property.area)}` : ''}</div></td><td className="px-6 py-4 align-top text-sm text-gray-600">{request.requested_plan_ids.map(id => plans.find(plan => plan.plan_id === id)?.name || id.slice(0, 8)).join(', ')}</td><td className="px-6 py-4 align-top text-sm text-gray-500">{new Date(request.created_at).toLocaleDateString()}</td><td className="px-6 py-4 align-top text-sm"><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Notification Received</span></td></tr>; })}{accessRequests.length === 0 && <tr><td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-400">No paid-plan access requests.</td></tr>}</tbody></table></div>
+                        <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-100"><thead className="bg-gray-50/50"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Owner Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Property Details</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Requested Plans</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th><th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th></tr></thead><tbody className="divide-y divide-gray-100">{accessRequests.map(request => { const owner = request.owner_details || {}; const property = request.property_details || {}; const ownerName = owner.full_name || owner.name || owner.display_name; return <tr key={request.request_id}><td className="px-6 py-4 align-top text-sm text-gray-700"><div className="font-semibold text-gray-900">{String(ownerName || 'Unnamed owner')}</div><div className="mt-1 text-xs text-gray-600">{String(owner.email || owner.email_address || 'No email')}</div><div className="text-xs text-gray-600">{String(owner.phone || owner.phone_number || 'No phone')}</div><div className="mt-1 text-xs text-gray-500">{[owner.address_line1, owner.address_line2, owner.city, owner.state, owner.pincode].filter(Boolean).map(String).join(', ') || 'Address not available'}</div></td><td className="max-w-sm px-6 py-4 align-top text-xs text-gray-600"><div className="font-semibold text-gray-800">{String(property.property_name || property.title || 'Property listing')}</div><div>{[property.property_type, property.listing_type, property.city, property.locality, property.pincode].filter(Boolean).map(String).join(' · ')}</div><div className="mt-1">{property.address ? String(property.address) : `Pincode: ${request.pincode}`}</div><div className="mt-1">{property.price ? `Price: ${String(property.price)}` : ''}{property.area ? ` · Area: ${String(property.area)}` : ''}</div></td><td className="px-6 py-4 align-top text-sm text-gray-600">{request.requested_plan_ids.map(id => plans.find(plan => plan.plan_id === id)?.name || id.slice(0, 8)).join(', ')}</td><td className="px-6 py-4 align-top text-sm text-gray-500">{new Date(request.created_at).toLocaleDateString()}</td><td className="px-6 py-4 align-top text-sm"><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Notification Received</span></td></tr>; })}{accessRequests.length === 0 && <tr><td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-400">No paid-plan access requests.</td></tr>}</tbody></table></div>
                     </div>
                 </div>
 
