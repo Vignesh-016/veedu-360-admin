@@ -1,5 +1,5 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { Fragment, useState, FormEvent, ChangeEvent, useCallback } from 'react';
+import { Fragment, useState, FormEvent, ChangeEvent, useCallback, useEffect } from 'react';
 import {
     IconX, IconBuildingSkyscraper, IconUser, IconCalendar,
     IconCurrencyRupee, IconNote, IconAlertCircle, IconFileCheck,
@@ -36,7 +36,33 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [propertyId, setPropertyId] = useState<string | undefined>(record?.property_id);
     const [dueDate, setDueDate] = useState<string>(record?.due_date || '');
     const [periodStartDate, setPeriodStartDate] = useState<string>(record?.period_start_date || '');
+    const [dueDay, setDueDay] = useState<number | string>(5);
+    const [totalMonths, setTotalMonths] = useState<number | string>(12);
     const [periodEndDate, setPeriodEndDate] = useState<string>(record?.period_end_date || '');
+    const [recurringTerms, setRecurringTerms] = useState<{ monthlyRent: number; dueDay: number; commission: number } | null>(null);
+    const leaseEndDate = (() => {
+        if (isEditing || !periodStartDate || !Number.isInteger(Number(totalMonths)) || Number(totalMonths) < 1) return null;
+        const start = new Date(`${periodStartDate}T00:00:00`);
+        const end = new Date(start.getFullYear(), start.getMonth() + Number(totalMonths), start.getDate() - 1);
+        return end.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    })();
+    useEffect(() => {
+        if (!isEditing || !record) return;
+        void (async () => {
+            const { data } = await (api.supabase as any).from('rent_records').select('recurring_rent_agreement_id, recurring_rent_agreements(monthly_rent,due_day), commission_percentage').eq('rent_record_id', record.rent_record_id).maybeSingle();
+            const agreement = data?.recurring_rent_agreements;
+            if (agreement) setRecurringTerms({ monthlyRent: Number(agreement.monthly_rent), dueDay: Number(agreement.due_day), commission: Number(data.commission_percentage ?? 0) });
+        })();
+    }, [isEditing, record]);
+    const editPreview = (() => {
+        if (!recurringTerms || !periodStartDate || !periodEndDate) return null;
+        const start = new Date(`${periodStartDate}T00:00:00`); const end = new Date(`${periodEndDate}T00:00:00`);
+        if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) || end < start || start.getMonth() !== end.getMonth()) return null;
+        const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate(); const occupied = end.getDate() - start.getDate() + 1;
+        const amount = start.getDate() === 1 && end.getDate() === days ? recurringTerms.monthlyRent : Math.round(recurringTerms.monthlyRent * occupied / days * 100) / 100;
+        const totalPaise = Math.round(amount * 100); const adminPaise = Math.round(totalPaise * recurringTerms.commission / 100); const due = new Date(end.getFullYear(), end.getMonth() + 1, recurringTerms.dueDay);
+        return { amount, admin: adminPaise / 100, owner: (totalPaise - adminPaise) / 100, due };
+    })();
     const [amountDue, setAmountDue] = useState<number | string>(record?.amount_due.toString() || '');
     const [notes, setNotes] = useState<string | undefined>(record?.notes ?? undefined);
     const [status, setStatus] = useState<RentStatus | undefined>(record?.status);
@@ -60,6 +86,21 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [error, setError] = useState<string | null>(null);
     const [payoutCheck, setPayoutCheck] = useState<any>(null);
     const [checkingPayout, setCheckingPayout] = useState(false);
+    useEffect(() => {
+        if (isEditing || !periodStartDate) return;
+        const handover = new Date(`${periodStartDate}T00:00:00`);
+        const day = Math.min(Math.max(Number(dueDay) || 5, 1), 28);
+        // Rent for the first partial calendar month is due on the selected day
+        // of the following month.
+        const due = new Date(handover.getFullYear(), handover.getMonth() + 1, day);
+        const toDateInput = (value: Date) => {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const date = String(value.getDate()).padStart(2, '0');
+            return `${year}-${month}-${date}`;
+        };
+        setDueDate(toDateInput(due));
+    }, [periodStartDate, dueDay, isEditing]);
     const checkOwnerPayout = async () => { setCheckingPayout(true); const { data, error: e } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: '284e4d98-243e-4fdc-b91a-f7494267c2e3' } }); setPayoutCheck(e ? { error: e.message } : data); setCheckingPayout(false); };
 
     const fetchPropertyOccupantDetails = useCallback(async (selectedPropertyId: string) => {
@@ -136,13 +177,23 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             setLoading(false);
             return;
         }
-        if (periodEndDate < periodStartDate) {
+        if (isEditing && periodEndDate < periodStartDate) {
             setError('Period End Date cannot be before Period Start Date.');
             setLoading(false);
             return;
         }
-        if (dueDate < periodStartDate) {
+        if (isEditing && dueDate < periodStartDate) {
             setError('Due Date cannot be before Period Start Date.');
+            setLoading(false);
+            return;
+        }
+        if (!isEditing && (!Number.isInteger(Number(dueDay)) || Number(dueDay) < 1 || Number(dueDay) > 28)) {
+            setError('Monthly due day must be between 1 and 28.');
+            setLoading(false);
+            return;
+        }
+        if (!isEditing && (!Number.isInteger(Number(totalMonths)) || Number(totalMonths) < 1 || Number(totalMonths) > 60)) {
+            setError('Automatic rent duration must be a whole number between 1 and 60 months.');
             setLoading(false);
             return;
         }
@@ -167,13 +218,8 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 if (!propertyId || !tenantInfo || !landlordInfo) {
                     throw new Error("Please select a valid property with an assigned tenant and owner.");
                 }
-                const createParams: any = {
-                    p_property_id: propertyId, p_due_date: dueDate, p_period_start_date: periodStartDate,
-                    p_period_end_date: periodEndDate, p_amount_due: numericAmountDue, p_notes: notes || undefined,
-                    p_owner_payout_override: overrideOwnerPayout ? Number(ownerPayoutAmount) : undefined,
-                    p_override_reason: overrideOwnerPayout ? overrideReason : undefined,
-                };
-                const { data: newRecordId, error: insertError } = await (api.supabase as any).functions.invoke('create-rent-record-admin', { body: createParams });
+                const createParams: any = { p_property_id: propertyId, p_move_in_date: periodStartDate, p_monthly_rent: numericAmountDue, p_due_day: Number(dueDay) || 5, p_total_months: Number(totalMonths), p_notes: notes || null };
+                const { data: newRecordId, error: insertError } = await (api.supabase as any).rpc('create_recurring_rent_agreement', createParams);
                 if (insertError) {
                     // FunctionsHttpError.message only says "non-2xx status code".
                     // Read the edge function response body so the form shows
@@ -194,9 +240,9 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 if (newRecordId?.success === false || newRecordId?.error) {
                     throw new Error(newRecordId.error || newRecordId.message || 'The server rejected this rent record.');
                 }
-                const createdId = newRecordId?.rent_record_id || newRecordId;
+                const createdId = newRecordId?.agreement_id || newRecordId;
                 if (!createdId) throw new Error("Failed to get new record ID after insertion.");
-                showSuccessNotification("Record Added", `Rent record added successfully! ID: ${createdId}`);
+                showSuccessNotification("Rent Setup Added", `Recurring rent setup saved successfully. ID: ${createdId}`);
             }
             onSuccess();
             onClose();
@@ -215,13 +261,13 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
         }
     };
 
-    const renderInput = (id: string, label: string, type: string, value: string | number | undefined, onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void, icon: React.ReactNode, placeholder?: string, required: boolean = false, rows?: number, disabled: boolean = false) => (
+    const renderInput = (id: string, label: string, type: string, value: string | number | undefined, onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void, icon: React.ReactNode, placeholder?: string, required: boolean = false, rows?: number, disabled: boolean = false, min?: string, max?: string, step?: string) => (
         <div>
             <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label} {required && <span className="text-red-500">*</span>}</label>
             <div className="mt-1 relative rounded-md shadow-sm">
                 <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${disabled ? 'text-gray-400' : 'text-gray-500'}`}>{icon}</div>
                 {type === 'textarea' ? (<textarea id={id} value={value ?? ''} onChange={onChange} rows={rows || 3} className={`pl-10 ${getBaseInputClasses()} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder={placeholder} required={required} disabled={loading || disabled} />)
-                    : (<input type={type} id={id} value={value ?? ''} onChange={onChange} className={`pl-10 ${getBaseInputClasses()} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder={placeholder} required={required} disabled={loading || disabled} step={type === 'number' ? '0.01' : undefined} min={type === 'number' ? '0' : undefined} />)}
+                    : (<input type={type} id={id} value={value ?? ''} onChange={onChange} className={`pl-10 ${getBaseInputClasses()} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`} placeholder={placeholder} required={required} disabled={loading || disabled} step={step ?? (type === 'number' ? '0.01' : undefined)} min={min ?? (type === 'number' ? '0' : undefined)} max={max} />)}
             </div>
         </div>
     );
@@ -281,15 +327,17 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                 </div>
                 <p className="text-xs leading-5 text-gray-500">For one property, create one record per due date. The due date must be on or after the period start, and the period end must be on or after the period start. The same dates can be used for a different property.</p>
                 <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-6">
-                    {renderInput("dueDate", "Due Date", "date", dueDate, (e) => setDueDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
-                    {renderInput("periodStartDate", "Period Start Date", "date", periodStartDate, (e) => setPeriodStartDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
-                    {renderInput("periodEndDate", "Period End Date", "date", periodEndDate, (e) => setPeriodEndDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
+                    {renderInput("periodStartDate", isEditing ? "Period Start Date" : "Move-in / Occupancy Date", "date", periodStartDate, (e) => setPeriodStartDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
+                    {!isEditing && renderInput("dueDay", "Monthly Due Day", "number", dueDay, (e) => setDueDay(e.target.value), <IconCalendar className="h-4 w-4" />, "Used automatically every month (1–28)", true, undefined, false, '1', '28', '1')}
+                    {!isEditing && <div>{renderInput("totalMonths", "Automatic Rent Duration (months)", "number", totalMonths, (e) => setTotalMonths(e.target.value), <IconCalendar className="h-4 w-4" />, "e.g. 12", true, undefined, false, '1', '60', '1')}{leaseEndDate && <p className="mt-1 text-xs text-gray-500">Calculated Lease End Date: {leaseEndDate}</p>}</div>}
+                    {isEditing && renderInput("periodEndDate", "Period End Date", "date", periodEndDate, (e) => setPeriodEndDate(e.target.value), <IconCalendar className="h-4 w-4" />, "", true)}
                 </div>
                 <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-x-6">
-                    {renderInput("amountDue", "Amount Due (INR)", "number", amountDue, (e) => setAmountDue(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "e.g., 15000.00", true)}
+                    {renderInput("amountDue", "Finalized Monthly Rent (INR)", "number", amountDue, (e) => setAmountDue(e.target.value), <IconCurrencyRupee className="h-4 w-4" />, "Agreed rent amount, e.g. 15000.00", true)}
                     {renderInput("amountPaid", "Amount Paid (INR)", "number", amountPaid, (e) => setAmountPaid(e.target.value), <IconFileCheck className="h-4 w-4" />, "e.g., 15000.00", isEditing, undefined, !isEditing)}
                     {renderSelect("status", "Status", status, (e) => setStatus(e.target.value as RentStatus), <IconListCheck className="h-4 w-4" />, rentStatusOptions, isEditing, !isEditing)}
                 </div>
+                {isEditing && editPreview && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Calculated Rent: ₹{editPreview.amount.toFixed(2)} · Admin Share: ₹{editPreview.admin.toFixed(2)} · Owner Share: ₹{editPreview.owner.toFixed(2)} · Due Date: {editPreview.due.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
                 {!isEditing && <div className="rounded border border-gray-200 bg-gray-50 p-3 space-y-3"><div className="text-sm">Plan Commission: <strong>{planPercentage ?? '—'}%</strong> <span className="text-xs text-gray-500">(read-only)</span></div><div className="text-sm">Default Owner Payout: <strong>₹{(defaultOwnerPreview / 100).toLocaleString()}</strong> · Default Admin Share: <strong>₹{(defaultAdminPreview / 100).toLocaleString()}</strong></div><label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={overrideOwnerPayout} onChange={e => setOverrideOwnerPayout(e.target.checked)} /> Adjust Owner Payout</label>{overrideOwnerPayout && <><input className={getBaseInputClasses()} type="number" min="0" max={Number(amountDue) || undefined} value={ownerPayoutAmount} onChange={e => setOwnerPayoutAmount(e.target.value)} placeholder="Owner payout amount (INR)" required /><input className={getBaseInputClasses()} value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="Reason for adjustment" required /><p className="text-sm">Final Owner Payout: <strong>₹{(finalOwnerPreview / 100).toLocaleString()}</strong> · Final Admin Share: <strong>₹{(finalAdminPreview / 100).toLocaleString()}</strong></p></>}</div>}
                 {renderInput("notes", "Notes", "textarea", notes, (e) => setNotes(e.target.value || undefined), <IconNote className="h-4 w-4" />, "Optional notes...", false, 3)}
             </div>

@@ -126,12 +126,12 @@ function RentRecordsPage() {
     };
 
     const handleDeleteRecord = async (recordId: string) => {
-        if (window.confirm('Are you sure you want to delete this rent record and all associated payments? This cannot be undone.')) {
+        if (window.confirm('Cancel this rent record?\n\nThis will cancel the rent obligation and remove it from the tenant\'s active dues. Financial history will be preserved.')) {
             setDeletingRecordId(recordId);
             try {
                 const { error: deleteError } = await api.deleteRentRecordAdmin(recordId);
                 if (deleteError) throw deleteError;
-                showSuccessNotification("Rent Record Deleted", "Record and payments deleted successfully.");
+                showSuccessNotification("Rent Record Cancelled", "The rent obligation was cancelled and financial history was preserved.");
                 fetchRentRecords(currentPage);
             } catch (err) {
                 const errMsg = err instanceof Error ? err.message : 'Failed to delete rent record.';
