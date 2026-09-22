@@ -33,7 +33,9 @@ function VisitPlans() {
             if (fetchError) {
                 throw new Error(typeof fetchError === 'string' ? fetchError : fetchError.message);
             }
-            const sortedPlans = (data || []).sort((a, b) => a.name.localeCompare(b.name));
+            const sortedPlans = (data || []).filter(plan =>
+                plan.name.trim().toLowerCase() !== 'property listing fee'
+            ).sort((a, b) => a.name.localeCompare(b.name));
             setPlans(sortedPlans);
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch visit plans';

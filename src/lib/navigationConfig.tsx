@@ -98,6 +98,16 @@ export const appNavigationItems: AppNavigationItem[] = [
         isDashboardCard: true,
     },
     {
+        id: 'propertyListingFees',
+        path: '/property-listing-fees',
+        label: 'Property Listing Fees',
+        icon: <IconCash size={20} />,
+        description: 'Manage property posting fees separately from visit credits.',
+        allowedRoles: ['super-admin', 'accounts-team'],
+        isSidebarLink: true,
+        isDashboardCard: true,
+    },
+    {
         id: 'contactPlans',
         path: '/contact-plans',
         label: 'Contact Plans',

@@ -17,6 +17,7 @@ const Properties = lazy(() => import('./pages/Properties'));
 const Interactions = lazy(() => import('./pages/Interactions'));
 const Customers = lazy(() => import('./pages/Customers'));
 const VisitPlans = lazy(() => import('./pages/VisitPlans'));
+const PropertyListingFees = lazy(() => import('./pages/PropertyListingFees'));
 const ContactPlans = lazy(() => import('./pages/ContactPlans'));
 const Admins = lazy(() => import('./pages/Admins'));
 const Transactions = lazy(() => import('./pages/Transactions'));
@@ -61,6 +62,7 @@ function App() {
                   <Route path="/customers" element={<Customers />} />
                   <Route path="/customers/:userId" element={<CustomerDetailsPage />} />
                   <Route path="/visit-plans" element={<VisitPlans />} />
+                  <Route path="/property-listing-fees" element={<PropertyListingFees />} />
                   <Route path="/contact-plans" element={<ContactPlans />} />
                   <Route path="/admins" element={<Admins />} />
                   <Route path="/transactions" element={<Transactions />} />
