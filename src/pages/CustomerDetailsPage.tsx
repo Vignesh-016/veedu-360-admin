@@ -163,6 +163,7 @@ function CustomerDetailsPage() {
     const { showSuccessNotification, showErrorNotification } = useNotification();
 
     const [customerData, setCustomerData] = useState<CustomerFullDetailsAdmin | null>(null);
+    const [listingQuotaDetails, setListingQuotaDetails] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -183,6 +184,8 @@ function CustomerDetailsPage() {
             if (fetchError) throw fetchError;
             if (!data) throw new Error("Customer not found.");
             setCustomerData(data);
+            const quota = await api.getCustomerListingQuota(userId);
+            if (!quota.error) setListingQuotaDetails(quota.data);
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Failed to fetch customer details';
             setError(errMsg);
@@ -485,6 +488,18 @@ function CustomerDetailsPage() {
                                     {renderDetailItem("Profile Updated", customerData.customer_updated_at, <IconClock size={14} />, undefined, false, true)}
                                 </dl>
                             </div>
+
+                            {listingQuotaDetails && <div className={`${getBaseCardClasses()} p-5`}>
+                                <h2 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">Free Property Posts</h2>
+                                <p className="text-xs text-gray-500 mb-3">Initial allowance plus one additional free post every 60 days from the first post.</p>
+                                <dl className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><dt>First post</dt><dd className="font-medium">{listingQuotaDetails.first_post_date || 'Not posted yet'}</dd></div>
+                                    <div className="flex justify-between"><dt>Free posts earned</dt><dd className="font-medium">{listingQuotaDetails.free_posts_earned}</dd></div>
+                                    <div className="flex justify-between"><dt>Free posts used</dt><dd className="font-medium">{listingQuotaDetails.free_posts_used}</dd></div>
+                                    <div className="flex justify-between"><dt>Free posts remaining</dt><dd className="font-medium text-emerald-700">{listingQuotaDetails.remaining_free_posts}</dd></div>
+                                    <div className="flex justify-between"><dt>Next free post</dt><dd className="font-medium">{listingQuotaDetails.next_free_post_at || 'Available now'}</dd></div>
+                                </dl>
+                            </div>}
 
                             {customerData.profile_details && Object.keys(customerData.profile_details).length > 0 && (
                                 <div className={`${getBaseCardClasses()} p-5`}>

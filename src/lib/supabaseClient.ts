@@ -193,6 +193,11 @@ class RealEstateAdminApi {
         return { data: response.data?.[0] ?? null, error: response.error };
     }
 
+    async getCustomerListingQuota(customerUserId: string): Promise<ApiResponse<any>> {
+        const response = await this.handleRpcAny<any[]>('get_property_posting_quota_admin', { p_customer_user_id: customerUserId });
+        return { data: response.data?.[0] ?? null, error: response.error };
+    }
+
     async updateCustomerVisits(customerUserId: string, visitBalance: number, expiryDate: string): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('update_customer_visits_admin', { p_customer_user_id: customerUserId, p_new_visit_balance: visitBalance, p_new_expiry_date: expiryDate });
     }
