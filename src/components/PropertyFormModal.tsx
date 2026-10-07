@@ -24,6 +24,8 @@ import JsonEditorModal from './JsonEditorModal';
 import { getBaseInputClasses, getPrimaryButtonClasses, getSecondaryButtonClasses } from '../lib/twUtils';
 import MapEditor from './MapEditor';
 import SearchableSelect from './SearchableSelect';
+import AddCustomerModal, { CreatedCustomer } from './AddCustomerModal';
+import AdminOwnerPayoutModal from './AdminOwnerPayoutModal';
 import { Json } from '../database.types';
 
 const defaultHouseDetails: HouseDetailsJson = {
@@ -103,9 +105,18 @@ function PropertyFormModalBody({
     const [tenantId, setTenantId] = useState<string | undefined>(property?.tenant_info?.user_id ?? undefined);
     const [initialSubmitterName] = useState<string | undefined>(property?.submitter_info?.name ?? undefined);
     const [initialTenantName] = useState<string | undefined>(property?.tenant_info?.name ?? undefined);
-
+    const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+    const [selectedSubmitterDisplay, setSelectedSubmitterDisplay] = useState<string | undefined>(property?.submitter_info?.name ?? undefined);
+    const [mobileVerified, setMobileVerified] = useState(false);
+    const [mobileNumber, setMobileNumber] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [mobileBusy, setMobileBusy] = useState(false);
+    const [payoutSummary, setPayoutSummary] = useState<any>(null);
     const [managementPlanId, setManagementPlanId] = useState<string | undefined>(property?.management_plan_info?.plan_id ?? undefined);
     const [rentDueDay, setRentDueDay] = useState<number | undefined>(property?.rent_due_day ?? undefined);
+    const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+    const selectedPlan = managementPlans.find(plan => plan.plan_id === managementPlanId) as any;
 
     // --- Nearby Amenities ---
     const [nearestHospital, setNearestHospital] = useState<number | undefined>(property?.nearest_hospital ?? undefined);
@@ -298,6 +309,23 @@ function PropertyFormModalBody({
         return (data || []).map((user) => ({ value: user.user_id, label: `${user.full_name ?? 'N/A'} (${user.email ?? 'No Email'})` }));
     };
 
+    const handleCustomerCreated = (customer: CreatedCustomer) => {
+        setSubmitterId(customer.user_id);
+        setSelectedSubmitterDisplay(`${customer.full_name} (${customer.email})`);
+    };
+
+    const loadMobileStatus = async (ownerId?: string) => {
+        setOtpSent(false); setOtp(''); setMobileVerified(false); setMobileNumber(''); setPayoutSummary(null);
+        if (!ownerId) return;
+        const { data } = await api.supabase.functions.invoke('admin-get-owner-mobile-status', { body: { owner_user_id: ownerId } });
+        if (data?.success) { setMobileVerified(Boolean(data.mobile_verified)); setMobileNumber(data.phone || ''); }
+        const { data: payout } = await api.supabase.functions.invoke('admin-get-owner-payout-summary', { body: { owner_user_id: ownerId } });
+        if (payout?.success) setPayoutSummary(payout.payout || null);
+    };
+    const sendOwnerOtp = async () => { if (!submitterId) return; setMobileBusy(true); try { const { data, error } = await api.supabase.functions.invoke('admin-send-owner-mobile-otp', { body: { owner_user_id: submitterId } }); if (error || !data?.success) throw new Error(data?.message || 'Unable to send verification code.'); setOtpSent(true); showSuccessNotification('OTP Sent', 'Verification code sent to the owner mobile number.'); } catch (e: any) { showErrorNotification('Mobile Verification', e.message || 'Unable to send verification code.'); } finally { setMobileBusy(false); } };
+    const verifyOwnerOtp = async () => { if (!submitterId || !otp) return; setMobileBusy(true); try { const { data, error } = await api.supabase.functions.invoke('admin-verify-owner-mobile-otp', { body: { owner_user_id: submitterId, otp } }); if (error || !data?.verified) throw new Error(data?.message || 'Unable to verify the code.'); setMobileVerified(true); setOtpSent(false); setOtp(''); showSuccessNotification('Mobile Verified', 'Owner mobile number verified successfully.'); } catch (e: any) { showErrorNotification('Mobile Verification', e.message || 'Unable to verify the code.'); } finally { setMobileBusy(false); } };
+    useEffect(() => { if (submitterId) void loadMobileStatus(submitterId); }, []);
+
     return (
         <>
             <form onSubmit={handleSubmit}>
@@ -319,7 +347,8 @@ function PropertyFormModalBody({
                     <fieldset className="border border-gray-200 p-4 rounded-md">
                         <legend className="text-base font-medium text-gray-900 px-2">Ownership & Management</legend>
                         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
-                            <SearchableSelect label="Submitter (Owner)" value={submitterId} onChange={(value) => setSubmitterId(value as string | undefined)} fetchOptions={fetchUserOptions} placeholder="Search Submitter..." icon={<IconUserShield size={16} />} disabled={loading} initialDisplayValue={initialSubmitterName} />
+                            <div className="space-y-2"><SearchableSelect label="Submitter (Owner)" value={submitterId} onChange={(value) => { const id = value as string | undefined; setSubmitterId(id); setSelectedSubmitterDisplay(undefined); void loadMobileStatus(id); }} fetchOptions={fetchUserOptions} placeholder="Search Submitter..." icon={<IconUserShield size={16} />} disabled={loading} initialDisplayValue={selectedSubmitterDisplay || initialSubmitterName} /><button type="button" onClick={() => setIsAddCustomerOpen(true)} disabled={loading} className="text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-50">+ Add User</button>{submitterId && <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm"><div className="font-medium text-gray-700">Mobile Number</div><div>{mobileNumber || 'Not available'}</div><div className="mt-1">Status: <span className={mobileVerified ? 'text-green-700' : 'text-amber-700'}>{mobileVerified ? 'Verified' : 'Not Verified'}</span></div>{!mobileVerified && <div className="mt-2 flex flex-wrap gap-2">{!otpSent ? <button type="button" onClick={sendOwnerOtp} disabled={mobileBusy} className="text-sm font-medium text-blue-700">Send OTP</button> : <><input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter OTP" className="w-28 rounded border px-2 py-1" /><button type="button" onClick={verifyOwnerOtp} disabled={mobileBusy || otp.length !== 6} className="text-sm font-medium text-blue-700">Verify</button></>}</div>}</div>}</div>
+                            {submitterId && selectedPlan?.requires_payout_account && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><div className="font-semibold text-amber-900">Owner Payout</div>{payoutSummary ? <><div className="mt-1">Account Holder: {payoutSummary.account_holder_name || '—'}</div><div>Bank: {payoutSummary.masked_account_number || '—'}</div><div>IFSC: {payoutSummary.ifsc_code || '—'}</div><div className="mt-1 font-medium">Status: {payoutSummary.payment_eligible && payoutSummary.razorpay_product_status === 'activated' ? '✓ Verified' : payoutSummary.razorpay_product_status === 'needs_clarification' ? 'Action Required' : 'Pending Verification'}</div><div className="mt-2 flex gap-3"><button type="button" onClick={() => setPayoutModalOpen(true)} className="font-medium text-blue-700">Edit Details</button><button type="button" onClick={() => submitterId && void loadMobileStatus(submitterId)} className="font-medium text-blue-700">Check Status</button></div></> : <><p className="mt-1 text-amber-800">Bank and KYC details are missing for this owner.</p><button type="button" onClick={() => setPayoutModalOpen(true)} className="mt-2 font-medium text-blue-700">Add Bank & KYC Details</button></>}</div>}
                             <SearchableSelect label="Tenant (Occupied By)" value={tenantId} onChange={(value) => setTenantId(value as string | undefined)} fetchOptions={fetchUserOptions} placeholder="Search Tenant..." icon={<IconUser size={16} />} disabled={loading} initialDisplayValue={initialTenantName} />
                             {renderSelectWithIcon("managementPlanId", "Management Plan", managementPlanId, (e) => setManagementPlanId(e.target.value || undefined), <IconCertificate className="h-4 w-4" />, managementPlanOptions, false, managementPlansLoading)}
                             {renderSelectWithIcon("submitterType", "Submitter Type", submitterType, (e) => setSubmitterType(e.target.value as SubmitterType || undefined), <IconUserQuestion className="h-4 w-4" />, submitterTypeOptions)}
@@ -415,6 +444,8 @@ function PropertyFormModalBody({
                 </div>
                 <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end bg-gray-50"><div className="flex items-center space-x-3"><button type="button" onClick={onClose} className={getSecondaryButtonClasses()} disabled={loading}>Cancel</button><button type="submit" className={getPrimaryButtonClasses()} disabled={loading || managementPlansLoading}>{loading ? (<><LoadingSpinner size={16} className="mr-2" />Saving...</>) : (isEditing ? 'Update Property' : 'Add Property')}</button></div></div>
             </form>
+            <AddCustomerModal isOpen={isAddCustomerOpen} onClose={() => setIsAddCustomerOpen(false)} onCreated={(customer) => { handleCustomerCreated(customer); void loadMobileStatus(customer.user_id); }} />
+            {payoutModalOpen && submitterId && <AdminOwnerPayoutModal ownerId={submitterId} onClose={() => setPayoutModalOpen(false)} onSaved={() => { void loadMobileStatus(submitterId); showSuccessNotification('Payout Details Saved', 'Owner payout verification can now continue.'); }} />}
             <JsonEditorModal isOpen={isJsonEditorOpen} onClose={() => setIsJsonEditorOpen(false)} initialJson={inventoryDetailsState} onSave={(updatedJson) => { setInventoryDetailsState(updatedJson); }} title="Edit Inventory Details" keyPlaceholder='Item Name (e.g., Sofa)' valuePlaceholder='Quantity/Description (e.g., 1, Good Condition)' predefinedKeys={["Fans", "Tubelights", "Sofas", "AirConditioners"]} />
         </>
     );
