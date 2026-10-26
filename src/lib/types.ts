@@ -285,6 +285,16 @@ export interface DenormalizedCustomerTransaction {
     created_at: string;
 }
 
+export interface VisitCreditBatchAdmin {
+    transaction_id: string;
+    plan_name: string | null;
+    credits_purchased: number;
+    credits_remaining: number;
+    paid_at: string;
+    expires_at: string;
+    status: 'active' | 'expired' | 'used' | string;
+}
+
 export interface DenormalizedCustomerTicketSummary {
     ticket_id: number;
     property_id: string;

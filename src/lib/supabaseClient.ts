@@ -7,7 +7,7 @@ import {
     // Core Return Types
     AdminUser, AdminUserSummary,
     AdminPropertySummary, AdminPropertyDetails,
-    CustomerSearchResultAdmin, CustomerFullDetailsAdmin,
+    CustomerSearchResultAdmin, CustomerFullDetailsAdmin, VisitCreditBatchAdmin,
     CustomerInteractionAdminView,
     VisitPlanAdminView, ManagementPlanInfo,
     TransactionAdminView, ContactPlan,
@@ -200,6 +200,18 @@ class RealEstateAdminApi {
 
     async updateCustomerVisits(customerUserId: string, visitBalance: number, expiryDate: string): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('update_customer_visits_admin', { p_customer_user_id: customerUserId, p_new_visit_balance: visitBalance, p_new_expiry_date: expiryDate });
+    }
+
+    async getVisitCreditBatchesAdmin(customerUserId: string): Promise<ApiResponse<VisitCreditBatchAdmin[]>> {
+        return this.handleRpcAny<VisitCreditBatchAdmin[]>('get_visit_credit_batches_admin', { p_customer_user_id: customerUserId });
+    }
+
+    async updateVisitCreditExpiryAdmin(transactionId: string, expiresAt: string, reason?: string): Promise<ApiResponse<VisitCreditBatchAdmin[]>> {
+        return this.handleRpcAny<VisitCreditBatchAdmin[]>('update_visit_credit_expiry_admin', {
+            p_transaction_id: transactionId,
+            p_expires_at: expiresAt,
+            p_reason: reason?.trim() || null,
+        });
     }
 
     async updateCustomerContactBalance(customerUserId: string, contactBalance: number): Promise<ApiResponse<null>> {

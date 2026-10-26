@@ -1,8 +1,8 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { IconX, IconAlertCircle } from '@tabler/icons-react';
 import api from '../lib/supabaseClient';
-import { CustomerFullDetailsAdmin } from '../lib/types';
+import { CustomerFullDetailsAdmin, VisitCreditBatchAdmin } from '../lib/types';
 import { useNotification } from './NotificationProvider';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -23,12 +23,56 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
     const [visitBalance, setVisitBalance] = useState<number>(customer.visit_balance || 0);
     const [contactBalance, setContactBalance] = useState<number>(customer.contact_balance ?? 0);
     const [listingQuota, setListingQuota] = useState<number>((customer as any).listing_quota ?? 1);
-    const [expiryDate, setExpiryDate] = useState<string>(
+    const [expiryDate] = useState<string>(
         customer.expiry_date ? new Date(customer.expiry_date).toISOString().slice(0, 10) : ''
     );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { showSuccessNotification, showErrorNotification } = useNotification();
+    const [batches, setBatches] = useState<VisitCreditBatchAdmin[]>([]);
+    const [batchLoading, setBatchLoading] = useState(true);
+    const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+    const [batchDate, setBatchDate] = useState('');
+    const [batchReason, setBatchReason] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        setBatchLoading(true);
+        api.getVisitCreditBatchesAdmin(customer.user_id).then(result => {
+            if (!cancelled) {
+                setBatches(result.data || []);
+                if (result.error) setError(typeof result.error === 'string' ? result.error : result.error.message);
+                setBatchLoading(false);
+            }
+        }).catch(err => {
+            if (!cancelled) { setError(err instanceof Error ? err.message : 'Unable to load Visit Credit batches'); setBatchLoading(false); }
+        });
+        return () => { cancelled = true; };
+    }, [customer.user_id]);
+
+    const startBatchEdit = (batch: VisitCreditBatchAdmin) => {
+        setEditingBatchId(batch.transaction_id);
+        setBatchDate(new Date(batch.expires_at).toISOString().slice(0, 16));
+        setBatchReason('');
+    };
+
+    const saveBatchExpiry = async (batch: VisitCreditBatchAdmin) => {
+        if (!batchDate) return;
+        const nextExpiry = new Date(batchDate);
+        if (Number.isNaN(nextExpiry.getTime())) { setError('Enter a valid expiry date and time.'); return; }
+        if (nextExpiry.getTime() <= Date.now() && !window.confirm('This date will expire the remaining Visit Credits immediately. Continue?')) return;
+        setLoading(true);
+        const result = await api.updateVisitCreditExpiryAdmin(batch.transaction_id, nextExpiry.toISOString(), batchReason);
+        if (result.error) {
+            const message = typeof result.error === 'string' ? result.error : result.error.message;
+            setError(message); showErrorNotification('Expiry Update Failed', message);
+        } else {
+            const refreshed = await api.getVisitCreditBatchesAdmin(customer.user_id);
+            setBatches(refreshed.data || []); setEditingBatchId(null);
+            showSuccessNotification('Expiry Updated', 'Visit Credit expiry updated successfully.');
+        }
+        setLoading(false);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -111,6 +155,20 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
                 )}
 
                 {/* Visit Balance */}
+                <section className="rounded-md border border-blue-200 bg-blue-50/50 p-4">
+                    <h3 className="text-sm font-semibold text-gray-900">Visit Credit Packs</h3>
+                    <p className="mt-1 text-xs text-gray-600">Expiry is managed per purchased batch. Credit quantity and usage are never changed here.</p>
+                    {batchLoading ? <p className="mt-3 text-sm text-gray-500">Loading credit packs...</p> : batches.length === 0 ? <p className="mt-3 text-sm text-gray-500">No paid Visit Credit packs found.</p> : (
+                        <div className="mt-3 space-y-3">
+                            {batches.map(batch => <div key={batch.transaction_id} className="rounded border border-gray-200 bg-white p-3 text-xs">
+                                <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-gray-900">{batch.plan_name || 'Visit Credit Pack'}</p><p className="text-gray-600">{batch.credits_remaining} / {batch.credits_purchased} credits remaining</p><p className="text-gray-600">Purchased: {new Date(batch.paid_at).toLocaleDateString('en-IN')}</p><p className="text-gray-600">Expires: {new Date(batch.expires_at).toLocaleString('en-IN')}</p></div><span className={`rounded-full px-2 py-1 font-semibold ${batch.status === 'active' ? 'bg-green-100 text-green-700' : batch.status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{batch.status.toUpperCase()}</span></div>
+                                {batch.credits_remaining > 0 && (editingBatchId === batch.transaction_id ? <div className="mt-3 space-y-2"><input type="datetime-local" value={batchDate} onChange={e => setBatchDate(e.target.value)} className="block w-full rounded border border-gray-300 px-2 py-1.5" disabled={loading} /><input type="text" value={batchReason} onChange={e => setBatchReason(e.target.value)} placeholder="Reason (recommended)" className="block w-full rounded border border-gray-300 px-2 py-1.5" disabled={loading} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setEditingBatchId(null)} className="rounded border px-2 py-1" disabled={loading}>Cancel</button><button type="button" onClick={() => saveBatchExpiry(batch)} className="rounded bg-[#D9A619] px-2 py-1 font-medium text-white" disabled={loading}>Save Expiry</button></div></div> : <button type="button" onClick={() => startBatchEdit(batch)} className="mt-2 font-medium text-blue-700 hover:underline" disabled={loading}>Edit Expiry</button>)}
+                            </div>)}
+                        </div>
+                    )}
+                </section>
+
+                {/* Visit Balance */}
                 <div>
                     <label htmlFor="visitBalance" className="block text-sm font-medium text-gray-700 mb-1">
                         Visit Balance
@@ -156,22 +214,6 @@ function CustomerEditFormBody({ customer, onClose, onSuccess }: CustomerEditForm
                         min="0"
                         value={listingQuota}
                         onChange={(e) => setListingQuota(Math.max(0, Number(e.target.value)))}
-                        className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D9A619] focus:border-[#D9A619] sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
-                        disabled={loading}
-                    />
-                </div>
-
-                {/* Expiry Date */}
-                <div>
-                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                        Plan Expiry Date
-                        <span className="text-xs text-gray-400 font-normal ml-1">(leave blank to clear)</span>
-                    </label>
-                    <input
-                        type="date"
-                        id="expiryDate"
-                        value={expiryDate}
-                        onChange={(e) => setExpiryDate(e.target.value)}
                         className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D9A619] focus:border-[#D9A619] sm:text-sm disabled:bg-gray-50 disabled:text-gray-500"
                         disabled={loading}
                     />
