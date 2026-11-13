@@ -267,6 +267,10 @@ class RealEstateAdminApi {
         return this.handleRpc<null>('update_property_admin', params);
     }
 
+    async assignPropertyPayoutAccount(propertyId: string, payoutAccountId: string | null): Promise<ApiResponse<null>> {
+        return this.handleRpcAny<null>('assign_property_payout_account_admin', { p_property_id: propertyId, p_payout_account_id: payoutAccountId });
+    }
+
     async deletePropertyAdmin(propertyId: string): Promise<ApiResponse<null>> {
         return this.handleRpc<null>('delete_property_admin', { p_property_id: propertyId });
     }
