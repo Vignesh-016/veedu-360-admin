@@ -62,6 +62,7 @@ export default function AdminOwnerPayoutModal({
         {
           body: {
             target_owner_user_id: ownerId,
+            property_id: propertyId,
             ...v,
             route_consent_accepted: true,
           },
