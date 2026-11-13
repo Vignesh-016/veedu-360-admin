@@ -45,12 +45,27 @@ export default function AdminOwnerPayoutModal({
     const account = accounts.find(
       (item) => item.payout_account_id === accountId,
     );
-    if (account)
+    if (!account) {
       setV((previous: any) => ({
         ...previous,
-        ...account,
-        confirm_account_number: account.account_number || "",
+        payout_account_id: "",
+        account_holder_name: "",
+        account_number: "",
+        confirm_account_number: "",
+        ifsc_code: "",
+        status: "",
+        payment_eligible: false,
+        razorpay_account_id: null,
+        razorpay_product_id: null,
+        razorpay_product_status: null,
       }));
+      return;
+    }
+    setV((previous: any) => ({
+      ...previous,
+      ...account,
+      confirm_account_number: account.account_number || "",
+    }));
   };
 
   const save = async () => {
