@@ -79,6 +79,7 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [tenantInfo, setTenantInfo] = useState<string | null>(record ? record.tenant_name : null);
     const [landlordInfo, setLandlordInfo] = useState<string | null>(record ? record.landlord_name : null);
     const [landlordUserId, setLandlordUserId] = useState<string | null>(record?.landlord_user_id || null);
+    const [payoutAccountId, setPayoutAccountId] = useState<string | null>(null);
     const [initialPropertyDisplay] = useState<string | undefined>(record?.property_address);
 
     const [loading, setLoading] = useState(false);
@@ -101,12 +102,22 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
         };
         setDueDate(toDateInput(due));
     }, [periodStartDate, dueDay, isEditing]);
-    const checkOwnerPayout = async () => { setCheckingPayout(true); const { data, error: e } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: '284e4d98-243e-4fdc-b91a-f7494267c2e3' } }); setPayoutCheck(e ? { error: e.message } : data); setCheckingPayout(false); };
+    const checkOwnerPayout = async () => {
+        if (!landlordUserId) {
+            setPayoutCheck({ error: 'Select a property with an assigned owner first.' });
+            return;
+        }
+        setCheckingPayout(true);
+        const { data, error: e } = await (api.supabase as any).functions.invoke('refresh-owner-payout-status-admin', { body: { owner_user_id: landlordUserId, ...(payoutAccountId ? { payout_account_id: payoutAccountId } : {}) } });
+        setPayoutCheck(e ? { error: e.message } : data);
+        setCheckingPayout(false);
+    };
 
     const fetchPropertyOccupantDetails = useCallback(async (selectedPropertyId: string) => {
         if (!selectedPropertyId) {
             setTenantInfo(null);
             setLandlordInfo(null);
+            setPayoutAccountId(null);
             return;
         }
         setPropertyLoading(true);
@@ -115,6 +126,13 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             const { data: propDetails, error: propError } = await api.getPropertyDetailsAdmin(selectedPropertyId);
             if (propError) throw propError;
             if (!propDetails) throw new Error("Property details not found.");
+            const { data: payoutAssignment, error: payoutAssignmentError } = await (api.supabase as any)
+                .from('properties')
+                .select('payout_account_id')
+                .eq('property_id', selectedPropertyId)
+                .maybeSingle();
+            if (payoutAssignmentError) throw payoutAssignmentError;
+            setPayoutAccountId(payoutAssignment?.payout_account_id || null);
             setPlanPercentage((propDetails as any).management_plan?.percentage ?? (propDetails as any).management_plan_info?.percentage ?? null);
 
             if (!propDetails.tenant_info?.user_id) {
@@ -138,6 +156,7 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             showErrorNotification("Property Load Error", errMsg);
             setTenantInfo(null);
             setLandlordInfo(null);
+            setPayoutAccountId(null);
         } finally {
             setPropertyLoading(false);
         }
@@ -150,6 +169,7 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
         } else if (!newPropertyId) {
             setTenantInfo(null);
             setLandlordInfo(null);
+            setPayoutAccountId(null);
             setError(null);
         }
     };
