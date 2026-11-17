@@ -126,13 +126,11 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
             const { data: propDetails, error: propError } = await api.getPropertyDetailsAdmin(selectedPropertyId);
             if (propError) throw propError;
             if (!propDetails) throw new Error("Property details not found.");
-            const { data: payoutAssignment, error: payoutAssignmentError } = await (api.supabase as any)
-                .from('properties')
-                .select('payout_account_id')
-                .eq('property_id', selectedPropertyId)
-                .maybeSingle();
+            const { data: payoutAccounts, error: payoutAssignmentError } = await (api.supabase as any)
+                .rpc('get_property_payout_accounts_admin', { p_property_id: selectedPropertyId });
             if (payoutAssignmentError) throw payoutAssignmentError;
-            setPayoutAccountId(payoutAssignment?.payout_account_id || null);
+            const selectedPayout = (payoutAccounts || []).find((account: any) => account.is_selected);
+            setPayoutAccountId(selectedPayout?.payout_account_id || null);
             setPlanPercentage((propDetails as any).management_plan?.percentage ?? (propDetails as any).management_plan_info?.percentage ?? null);
 
             if (!propDetails.tenant_info?.user_id) {
