@@ -74,7 +74,13 @@ class RealEstateAdminApi {
         if (!supabaseUrl || !supabaseAnonKey) {
             throw new Error("Supabase URL or Anon Key is missing. Check your .env file.");
         }
-        this.supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+        this.supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+            },
+        });
     }
 
     private async handleRpc<T>(

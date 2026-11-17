@@ -72,6 +72,13 @@ export default function AdminOwnerPayoutModal({
     setError("");
     setBusy(true);
     try {
+      const { data: sessionData, error: sessionError } =
+        await api.supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) {
+        throw new Error("Your admin session has expired. Please sign in again.");
+      }
+
       const { data, error: saveError } = await api.supabase.functions.invoke(
         "admin-save-owner-payout",
         {
@@ -81,6 +88,7 @@ export default function AdminOwnerPayoutModal({
             ...v,
             route_consent_accepted: true,
           },
+          headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
       if (saveError || !data?.success)
@@ -93,7 +101,10 @@ export default function AdminOwnerPayoutModal({
       if (assignment.error) throw assignment.error;
       const setup = await api.supabase.functions.invoke(
         "setup-owner-route-account",
-        { body: { owner_user_id: ownerId, payout_account_id: accountId } },
+        {
+          body: { owner_user_id: ownerId, payout_account_id: accountId },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
       );
       if (setup.error || setup.data?.error)
         setError(
