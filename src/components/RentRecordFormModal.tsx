@@ -39,29 +39,11 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
     const [dueDay, setDueDay] = useState<number | string>(5);
     const [totalMonths, setTotalMonths] = useState<number | string>(12);
     const [periodEndDate, setPeriodEndDate] = useState<string>(record?.period_end_date || '');
-    const [recurringTerms, setRecurringTerms] = useState<{ monthlyRent: number; dueDay: number; commission: number } | null>(null);
     const leaseEndDate = (() => {
         if (isEditing || !periodStartDate || !Number.isInteger(Number(totalMonths)) || Number(totalMonths) < 1) return null;
         const start = new Date(`${periodStartDate}T00:00:00`);
         const end = new Date(start.getFullYear(), start.getMonth() + Number(totalMonths), start.getDate() - 1);
         return end.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-    })();
-    useEffect(() => {
-        if (!isEditing || !record) return;
-        void (async () => {
-            const { data } = await (api.supabase as any).from('rent_records').select('recurring_rent_agreement_id, recurring_rent_agreements(monthly_rent,due_day), commission_percentage').eq('rent_record_id', record.rent_record_id).maybeSingle();
-            const agreement = data?.recurring_rent_agreements;
-            if (agreement) setRecurringTerms({ monthlyRent: Number(agreement.monthly_rent), dueDay: Number(agreement.due_day), commission: Number(data.commission_percentage ?? 0) });
-        })();
-    }, [isEditing, record]);
-    const editPreview = (() => {
-        if (!recurringTerms || !periodStartDate || !periodEndDate) return null;
-        const start = new Date(`${periodStartDate}T00:00:00`); const end = new Date(`${periodEndDate}T00:00:00`);
-        if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) || end < start || start.getMonth() !== end.getMonth()) return null;
-        const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate(); const occupied = end.getDate() - start.getDate() + 1;
-        const amount = start.getDate() === 1 && end.getDate() === days ? recurringTerms.monthlyRent : Math.round(recurringTerms.monthlyRent * occupied / days * 100) / 100;
-        const totalPaise = Math.round(amount * 100); const adminPaise = Math.round(totalPaise * recurringTerms.commission / 100); const due = new Date(end.getFullYear(), end.getMonth() + 1, recurringTerms.dueDay);
-        return { amount, admin: adminPaise / 100, owner: (totalPaise - adminPaise) / 100, due };
     })();
     const [amountDue, setAmountDue] = useState<number | string>(record?.amount_due.toString() || '');
     const [notes, setNotes] = useState<string | undefined>(record?.notes ?? undefined);
@@ -267,7 +249,9 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
         } catch (submitError: any) {
             const message = submitError?.message || submitError?.details || 'An unexpected error occurred.';
             const rawMessage = String(message);
-            const safeMessage = rawMessage.toLowerCase().includes('rent_records_property_id_due_date_key')
+            const safeMessage = rawMessage.toLowerCase().includes('active payment attempt')
+                ? 'Amount and financial dates are locked while a payment attempt is active. Update notes or status, or wait for the payment attempt to finish before changing financial details.'
+                : rawMessage.toLowerCase().includes('rent_records_property_id_due_date_key')
                 ? `A rent record already exists for this property with due date ${dueDate}. The September period ending ${periodEndDate} is already represented by that October due record. Open the existing rent record from the Rent Records list and edit it, or choose a different due date.`
                 : rawMessage.toLowerCase().includes('payout account')
                 ? 'Payout account verification is required before creating a rent record.'
@@ -355,7 +339,6 @@ function RentRecordFormBody({ record, onClose, onSuccess }: RentRecordFormBodyPr
                     {renderInput("amountPaid", "Amount Paid (INR)", "number", amountPaid, (e) => setAmountPaid(e.target.value), <IconFileCheck className="h-4 w-4" />, "e.g., 15000.00", isEditing, undefined, !isEditing)}
                     {renderSelect("status", "Status", status, (e) => setStatus(e.target.value as RentStatus), <IconListCheck className="h-4 w-4" />, rentStatusOptions, isEditing, !isEditing)}
                 </div>
-                {isEditing && editPreview && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Calculated Rent: ₹{editPreview.amount.toFixed(2)} · Admin Share: ₹{editPreview.admin.toFixed(2)} · Owner Share: ₹{editPreview.owner.toFixed(2)} · Due Date: {editPreview.due.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
                 {!isEditing && <div className="rounded border border-gray-200 bg-gray-50 p-3 space-y-3"><div className="text-sm">Plan Commission: <strong>{planPercentage ?? '—'}%</strong> <span className="text-xs text-gray-500">(read-only)</span></div><div className="text-sm">Default Owner Payout: <strong>₹{(defaultOwnerPreview / 100).toLocaleString()}</strong> · Default Admin Share: <strong>₹{(defaultAdminPreview / 100).toLocaleString()}</strong></div><label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={overrideOwnerPayout} onChange={e => setOverrideOwnerPayout(e.target.checked)} /> Adjust Owner Payout</label>{overrideOwnerPayout && <><input className={getBaseInputClasses()} type="number" min="0" max={Number(amountDue) || undefined} value={ownerPayoutAmount} onChange={e => setOwnerPayoutAmount(e.target.value)} placeholder="Owner payout amount (INR)" required /><input className={getBaseInputClasses()} value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="Reason for adjustment" required /><p className="text-sm">Final Owner Payout: <strong>₹{(finalOwnerPreview / 100).toLocaleString()}</strong> · Final Admin Share: <strong>₹{(finalAdminPreview / 100).toLocaleString()}</strong></p></>}</div>}
                 {renderInput("notes", "Notes", "textarea", notes, (e) => setNotes(e.target.value || undefined), <IconNote className="h-4 w-4" />, "Optional notes...", false, 3)}
             </div>
