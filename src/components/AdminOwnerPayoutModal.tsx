@@ -21,6 +21,9 @@ export default function AdminOwnerPayoutModal({
   const [accounts, setAccounts] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [routeRequirements, setRouteRequirements] = useState<
+    Array<{ field_reference?: string | null; reason_code?: string | null; status?: string | null }>
+  >([]);
   const set = (key: string, value: string) =>
     setV((previous: any) => ({ ...previous, [key]: value }));
 
@@ -70,6 +73,7 @@ export default function AdminOwnerPayoutModal({
 
   const save = async () => {
     setError("");
+    setRouteRequirements([]);
     setBusy(true);
     try {
       const { data: sessionData, error: sessionError } =
@@ -106,12 +110,28 @@ export default function AdminOwnerPayoutModal({
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (setup.error || setup.data?.error)
+      if (setup.error || setup.data?.error) {
         setError(
-          "Details saved and assigned. Route verification can be retried from payout status.",
+          setup.data?.error ||
+            "Details saved and assigned, but Razorpay verification could not be refreshed.",
         );
+      } else if (setup.data?.payment_eligible !== true) {
+        const requirements = Array.isArray(setup.data?.requirements)
+          ? setup.data.requirements
+          : [];
+        setRouteRequirements(requirements);
+        setError(
+          setup.data?.action_required ||
+            "Razorpay requires additional payout verification.",
+        );
+      }
       onSaved();
-      if (!setup.error && !setup.data?.error) onClose();
+      if (
+        !setup.error &&
+        !setup.data?.error &&
+        setup.data?.payment_eligible === true
+      )
+        onClose();
     } catch (caught: any) {
       setError(caught.message || "Unable to save payout details.");
     } finally {
@@ -181,6 +201,20 @@ export default function AdminOwnerPayoutModal({
           details.
         </label>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {routeRequirements.length > 0 && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-semibold">Razorpay requires these corrections:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {routeRequirements.map((requirement, index) => (
+                <li key={`${requirement.field_reference || "field"}-${index}`}>
+                  {requirement.field_reference || "Payout details"}
+                  {requirement.reason_code ? ` — ${requirement.reason_code}` : ""}
+                  {requirement.status ? ` (${requirement.status})` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="mt-5 flex justify-end gap-3">
           <button className={getSecondaryButtonClasses()} onClick={onClose}>
             Cancel

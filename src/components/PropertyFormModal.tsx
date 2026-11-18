@@ -113,6 +113,7 @@ function PropertyFormModalBody({
     const [otp, setOtp] = useState('');
     const [mobileBusy, setMobileBusy] = useState(false);
     const [payoutSummary, setPayoutSummary] = useState<any>(null);
+    const [payoutStatusLoading, setPayoutStatusLoading] = useState(false);
     const [managementPlanId, setManagementPlanId] = useState<string | undefined>(property?.management_plan_info?.plan_id ?? undefined);
     const [rentDueDay, setRentDueDay] = useState<number | undefined>(property?.rent_due_day ?? undefined);
     const [payoutModalOpen, setPayoutModalOpen] = useState(false);
@@ -326,6 +327,33 @@ function PropertyFormModalBody({
         const { data: payout } = await api.supabase.functions.invoke('admin-get-owner-payout-summary', { body: { owner_user_id: ownerId, ...(propertyId ? { property_id: propertyId } : {}) } });
         if (payout?.success) setPayoutSummary(payout.payout || null);
     };
+    const checkPayoutStatus = async () => {
+        const propertyId = property?.property_id;
+        const payoutAccountId = payoutSummary?.payout_account_id;
+        if (!submitterId || !propertyId || !payoutAccountId) {
+            showErrorNotification('Payout Status', 'This property does not have an assigned payout account.');
+            return;
+        }
+        setPayoutStatusLoading(true);
+        try {
+            const { data, error } = await api.supabase.functions.invoke('refresh-owner-payout-status-admin', {
+                body: { owner_user_id: submitterId, payout_account_id: payoutAccountId },
+            });
+            if (error || data?.error) throw new Error(data?.error || error?.message || 'Unable to refresh payout status.');
+            await loadMobileStatus(submitterId, propertyId);
+            if (data?.payment_eligible === true) {
+                showSuccessNotification('Payout Verified', 'The assigned payout account is activated and ready to receive rent payments.');
+            } else {
+                const accountStatus = data?.razorpay_account_status || 'unknown';
+                const productStatus = data?.razorpay_product_status || 'unknown';
+                showErrorNotification('Payout Action Required', `Linked account: ${accountStatus}. Route product: ${productStatus}. Open Edit Details to review Razorpay requirements.`);
+            }
+        } catch (caught: any) {
+            showErrorNotification('Payout Status', caught.message || 'Unable to refresh payout status.');
+        } finally {
+            setPayoutStatusLoading(false);
+        }
+    };
     const sendOwnerOtp = async () => { if (!submitterId) return; setMobileBusy(true); try { const { data, error } = await api.supabase.functions.invoke('admin-send-owner-mobile-otp', { body: { owner_user_id: submitterId } }); if (error || !data?.success) throw new Error(data?.message || 'Unable to send verification code.'); setOtpSent(true); showSuccessNotification('OTP Sent', 'Verification code sent to the owner mobile number.'); } catch (e: any) { showErrorNotification('Mobile Verification', e.message || 'Unable to send verification code.'); } finally { setMobileBusy(false); } };
     const verifyOwnerOtp = async () => { if (!submitterId || !otp) return; setMobileBusy(true); try { const { data, error } = await api.supabase.functions.invoke('admin-verify-owner-mobile-otp', { body: { owner_user_id: submitterId, otp } }); if (error || !data?.verified) throw new Error(data?.message || 'Unable to verify the code.'); setMobileVerified(true); setOtpSent(false); setOtp(''); showSuccessNotification('Mobile Verified', 'Owner mobile number verified successfully.'); } catch (e: any) { showErrorNotification('Mobile Verification', e.message || 'Unable to verify the code.'); } finally { setMobileBusy(false); } };
     useEffect(() => { if (submitterId) void loadMobileStatus(submitterId, property?.property_id); }, []);
@@ -352,7 +380,7 @@ function PropertyFormModalBody({
                         <legend className="text-base font-medium text-gray-900 px-2">Ownership & Management</legend>
                         <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
                             <div className="space-y-2"><SearchableSelect label="Submitter (Owner)" value={submitterId} onChange={(value) => { const id = value as string | undefined; setSubmitterId(id); setSelectedSubmitterDisplay(undefined); setPayoutSummary(null); void loadMobileStatus(id); }} fetchOptions={fetchUserOptions} placeholder="Search Submitter..." icon={<IconUserShield size={16} />} disabled={loading} initialDisplayValue={selectedSubmitterDisplay || initialSubmitterName} /><button type="button" onClick={() => setIsAddCustomerOpen(true)} disabled={loading} className="text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-50">+ Add User</button>{submitterId && <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm"><div className="font-medium text-gray-700">Mobile Number</div><div>{mobileNumber || 'Not available'}</div><div className="mt-1">Status: <span className={mobileVerified ? 'text-green-700' : 'text-amber-700'}>{mobileVerified ? 'Verified' : 'Not Verified'}</span></div>{!mobileVerified && <div className="mt-2 flex flex-wrap gap-2">{!otpSent ? <button type="button" onClick={sendOwnerOtp} disabled={mobileBusy} className="text-sm font-medium text-blue-700">Send OTP</button> : <><input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter OTP" className="w-28 rounded border px-2 py-1" /><button type="button" onClick={verifyOwnerOtp} disabled={mobileBusy || otp.length !== 6} className="text-sm font-medium text-blue-700">Verify</button></>}</div>}</div>}</div>
-                            {submitterId && selectedPlan?.requires_payout_account && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><div className="font-semibold text-amber-900">Owner Payout</div>{payoutSummary ? <><div className="mt-1">Account Holder: {payoutSummary.account_holder_name || '—'}</div><div>Bank: {payoutSummary.masked_account_number || '—'}</div><div>IFSC: {payoutSummary.ifsc_code || '—'}</div><div className="mt-1 font-medium">Status: {payoutSummary.payment_eligible && payoutSummary.razorpay_product_status === 'activated' ? '✓ Verified' : payoutSummary.razorpay_product_status === 'needs_clarification' ? 'Action Required' : 'Pending Verification'}</div><div className="mt-2 flex gap-3"><button type="button" onClick={() => setPayoutModalOpen(true)} className="font-medium text-blue-700">Edit Details</button><button type="button" onClick={() => submitterId && void loadMobileStatus(submitterId)} className="font-medium text-blue-700">Check Status</button></div></> : <><p className="mt-1 text-amber-800">Bank and KYC details are missing for this owner.</p><button type="button" onClick={() => setPayoutModalOpen(true)} className="mt-2 font-medium text-blue-700">Add Bank & KYC Details</button></>}</div>}
+                            {submitterId && selectedPlan?.requires_payout_account && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><div className="font-semibold text-amber-900">Owner Payout</div>{payoutSummary ? <><div className="mt-1">Account Holder: {payoutSummary.account_holder_name || '—'}</div><div>Bank: {payoutSummary.masked_account_number || '—'}</div><div>IFSC: {payoutSummary.ifsc_code || '—'}</div><div className="mt-1 font-medium">Status: {payoutSummary.payment_eligible && payoutSummary.razorpay_product_status === 'activated' ? '✓ Verified' : payoutSummary.razorpay_product_status === 'needs_clarification' ? 'Action Required' : 'Pending Verification'}</div><div className="mt-2 flex gap-3"><button type="button" onClick={() => setPayoutModalOpen(true)} className="font-medium text-blue-700">Edit Details</button><button type="button" onClick={() => void checkPayoutStatus()} disabled={payoutStatusLoading} className="font-medium text-blue-700 disabled:opacity-50">{payoutStatusLoading ? 'Checking…' : 'Check Status'}</button></div></> : <><p className="mt-1 text-amber-800">Bank and KYC details are missing for this owner.</p><button type="button" onClick={() => setPayoutModalOpen(true)} className="mt-2 font-medium text-blue-700">Add Bank & KYC Details</button></>}</div>}
                             <SearchableSelect label="Tenant (Occupied By)" value={tenantId} onChange={(value) => setTenantId(value as string | undefined)} fetchOptions={fetchUserOptions} placeholder="Search Tenant..." icon={<IconUser size={16} />} disabled={loading} initialDisplayValue={initialTenantName} />
                             {renderSelectWithIcon("managementPlanId", "Management Plan", managementPlanId, (e) => setManagementPlanId(e.target.value || undefined), <IconCertificate className="h-4 w-4" />, managementPlanOptions, false, managementPlansLoading)}
                             {renderSelectWithIcon("submitterType", "Submitter Type", submitterType, (e) => setSubmitterType(e.target.value as SubmitterType || undefined), <IconUserQuestion className="h-4 w-4" />, submitterTypeOptions)}
